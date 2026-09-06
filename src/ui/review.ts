@@ -1,0 +1,336 @@
+// 闪卡复习会话:队列管理 + Webview 面板。
+// 扩展端持有队列并计算新调度 -> 写回笔记 -> 推进;Webview 只展示与收集评级。
+
+import * as vscode from "vscode";
+import { Grade, SchedSeg, SRSConfig } from "../core/model";
+import { newCardSchedule, reviewCardSchedule, ScheduleState } from "../core/sm2";
+import { humanizeInterval } from "../core/dates";
+import { renderMd } from "./md-lite";
+import { writeCardGrade } from "../workspace";
+
+export interface ReviewItem {
+    relPath: string;
+    ordinal: number;
+    sideIdx: number;
+    deck: string;
+    context: string[];
+    front: string;
+    back: string;
+    isNew: boolean;
+    due: string | null;
+    segs: (SchedSeg | null)[];
+}
+
+export interface GradeCounts {
+    again: number;
+    hard: number;
+    good: number;
+    easy: number;
+}
+
+export function uriOfRel(root: vscode.WorkspaceFolder | undefined, relPath: string): vscode.Uri {
+    if (!root) throw new Error("未打开工作区");
+    return vscode.Uri.joinPath(root.uri, ...relPath.split("/"));
+}
+
+export class ReviewController {
+    private panel: vscode.WebviewPanel | null = null;
+    private items: ReviewItem[] = [];
+    private idx = 0;
+    private counts: GradeCounts = { again: 0, hard: 0, good: 0, easy: 0 };
+    private cfg: SRSConfig;
+    private ctx: vscode.ExtensionContext;
+    private root: vscode.WorkspaceFolder | undefined;
+    private revealed = false;
+
+    constructor(ctx: vscode.ExtensionContext, cfg: SRSConfig) {
+        this.ctx = ctx;
+        this.cfg = cfg;
+        this.root = vscode.workspace.workspaceFolders?.[0];
+    }
+
+    get active(): boolean {
+        return this.panel !== null;
+    }
+
+    start(items: ReviewItem[], title: string): void {
+        if (items.length === 0) {
+            vscode.window.showInformationMessage("没有可复习的闪卡 🎉");
+            return;
+        }
+        this.items = items;
+        this.idx = 0;
+        this.counts = { again: 0, hard: 0, good: 0, easy: 0 };
+        this.ensurePanel(title);
+        this.panel?.reveal();
+        this.sendCurrent();
+    }
+
+    private ensurePanel(title: string): void {
+        if (this.panel) {
+            this.panel.title = title;
+            return;
+        }
+        const panel = vscode.window.createWebviewPanel(
+            "srs.review",
+            title,
+            vscode.ViewColumn.Beside,
+            { enableScripts: true, retainContextWhenHidden: true },
+        );
+        this.panel = panel;
+        panel.webview.html = buildShellHtml();
+        panel.webview.onDidReceiveMessage(
+            (msg) => void this.onMessage(msg),
+            undefined,
+            this.ctx.subscriptions,
+        );
+        panel.onDidDispose(
+            () => {
+                this.panel = null;
+            },
+            undefined,
+            this.ctx.subscriptions,
+        );
+    }
+
+    private async onMessage(msg: any): Promise<void> {
+        switch (msg?.type) {
+            case "reveal":
+                this.revealed = true;
+                this.post({ type: "revealed" });
+                return;
+            case "grade":
+                await this.handleGrade(msg.grade as Grade);
+                return;
+            case "open":
+                await this.openNote();
+                return;
+            case "close":
+                this.panel?.dispose();
+                return;
+        }
+    }
+
+    private async openNote(): Promise<void> {
+        const item = this.items[this.idx];
+        if (!item) return;
+        try {
+            const uri = uriOfRel(this.root, item.relPath);
+            const doc = await vscode.workspace.openTextDocument(uri);
+            await vscode.window.showTextDocument(doc, vscode.ViewColumn.One);
+        } catch (e) {
+            vscode.window.showWarningMessage(`无法打开笔记:${String(e)}`);
+        }
+    }
+
+    private async handleGrade(grade: Grade): Promise<void> {
+        if (!this.revealed) {
+            this.post({ type: "needReveal" });
+            return;
+        }
+        const item = this.items[this.idx];
+        if (!item) return;
+
+        const curSeg = item.segs[item.sideIdx];
+        const cur: ScheduleState | null = curSeg
+            ? { due: curSeg.due, interval: curSeg.interval, ease: curSeg.ease }
+            : null;
+        const next = cur ? reviewCardSchedule(grade, cur, this.cfg) : newCardSchedule(grade, this.cfg);
+
+        const segs = [...item.segs];
+        segs[item.sideIdx] = { due: next.due, interval: next.interval, ease: next.ease };
+
+        let ok = false;
+        try {
+            const uri = uriOfRel(this.root, item.relPath);
+            ok = await writeCardGrade(uri, item.relPath, item.ordinal, segs, this.cfg);
+        } catch {
+            ok = false;
+        }
+        if (!ok) {
+            this.post({ type: "writeError" });
+            vscode.window.showWarningMessage(
+                `调度写回失败(文件可能正被编辑或内容已变):${item.relPath} — 本次评级未记录。`,
+            );
+            return;
+        }
+
+        this.counts[grade]++;
+        item.segs = segs;
+        item.isNew = false;
+        item.due = next.due;
+        this.revealed = false;
+        this.idx++;
+        this.sendCurrent();
+    }
+
+    private sendCurrent(): void {
+        if (!this.panel) return;
+        const item = this.items[this.idx];
+        if (!item) {
+            this.post({ type: "done", counts: this.counts, total: this.items.length });
+            return;
+        }
+        const curSeg = item.segs[item.sideIdx];
+        const cur: ScheduleState | null = curSeg
+            ? { due: curSeg.due, interval: curSeg.interval, ease: curSeg.ease }
+            : null;
+        const ivls = (["again", "hard", "good", "easy"] as Grade[]).map((g) => {
+            const s = cur ? reviewCardSchedule(g, cur, this.cfg) : newCardSchedule(g, this.cfg);
+            return humanizeInterval(Math.max(0, Math.round(s.interval)));
+        });
+        this.post({
+            type: "card",
+            idx: this.idx,
+            total: this.items.length,
+            deck: item.deck,
+            context: item.context,
+            relPath: item.relPath,
+            frontHtml: renderMd(item.front),
+            backHtml: renderMd(item.back),
+            isNew: item.isNew,
+            due: item.due,
+            before: cur
+                ? {
+                      interval: humanizeInterval(Math.max(0, Math.round(cur.interval))),
+                      ease: cur.ease,
+                      due: cur.due,
+                  }
+                : null,
+            ivls,
+        });
+    }
+
+    private post(data: unknown): void {
+        if (this.panel) void this.panel.webview.postMessage(data);
+    }
+}
+
+function buildShellHtml(): string {
+    const nonce = Math.random().toString(36).slice(2);
+    const csp = `default-src 'none'; style-src 'unsafe-inline'; script-src 'nonce-${nonce}'; img-src data:;`;
+    return `<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"/>
+<meta http-equiv="Content-Security-Policy" content="${csp}"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>闪卡复习</title>
+<style>
+body { font-family: var(--vscode-font-family); color: var(--vscode-foreground); padding: 14px 18px; }
+.hd { margin-bottom: 10px; }
+.hd .top { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+.deck { font-weight:600; }
+.prog { color: var(--vscode-descriptionForeground); }
+.ctx { color: var(--vscode-descriptionForeground); font-size:12px; margin-top:2px; }
+.card { border:1px solid var(--vscode-panel-border); border-radius:8px; padding:16px 18px; }
+.front h1,.front h2,.front h3,.front h4 { margin:.2em 0; }
+.line,.li { margin:2px 0; }
+pre { background: var(--vscode-textCodeBlock-background); padding:8px 10px; border-radius:6px; overflow:auto; font-size:12.5px; white-space:pre-wrap; }
+code { font-family: var(--vscode-editor-font-family); background: var(--vscode-textCodeBlock-background); padding:1px 4px; border-radius:3px; }
+.back { display:none; border-top:1px dashed var(--vscode-panel-border); margin-top:12px; padding-top:12px; }
+.btns { display:flex; gap:8px; margin-top:14px; flex-wrap:wrap; }
+.btns button { flex:1; min-width:100px; padding:7px 4px; border-radius:6px; border:1px solid var(--vscode-panel-border); background:transparent; cursor:pointer; }
+.btns button:hover { background: var(--vscode-button-hoverBackground); color: var(--vscode-button-foreground); }
+button.primary { background: var(--vscode-button-background); color: var(--vscode-button-foreground); border-color:transparent; }
+button.primary:hover { background: var(--vscode-button-hoverBackground); }
+.grades button .ivl { display:block; font-size:11px; opacity:.75; }
+.meta { margin-top:12px; font-size:12px; color: var(--vscode-descriptionForeground); }
+a { color: var(--vscode-textLink-foreground); cursor:pointer; text-decoration:none; }
+.center { text-align:center; margin-top:32px; }
+.center h2 { margin:.4em 0; }
+</style>
+</head>
+<body>
+<div class="hd">
+  <div class="top"><span class="deck" id="deck">—</span><span class="prog" id="prog"></span></div>
+  <div class="ctx" id="ctx"></div>
+</div>
+<div class="card">
+  <div class="front" id="front"></div>
+  <div class="back" id="back"></div>
+  <div class="btns" id="revealRow">
+    <button class="primary" id="reveal">显示答案 (空格)</button>
+  </div>
+  <div class="btns grades" id="grades" style="display:none">
+    <button id="again-btn-el"><span id="lbl-again">重来</span><span class="ivl" id="ivl-again"></span></button>
+    <button id="hard-btn-el"><span id="lbl-hard">困难</span><span class="ivl" id="ivl-hard"></span></button>
+    <button id="good-btn-el"><span id="lbl-good">良好</span><span class="ivl" id="ivl-good"></span></button>
+    <button id="easy-btn-el"><span id="lbl-easy">简单</span><span class="ivl" id="ivl-easy"></span></button>
+  </div>
+  <div class="meta">
+    <a id="openNote">打开笔记</a> · <a id="closeBtn">结束复习</a>
+    <div id="meta"></div>
+  </div>
+</div>
+<script nonce="${nonce}">
+(function(){
+  const vscode = acquireVsCodeApi();
+  let revealed = false;
+  const $ = (id) => document.getElementById(id);
+  function showAnswer(){
+    if (revealed) return;
+    revealed = true;
+    // 必须显式覆盖样式表 .back{display:none},赋空字符串会退回 none 导致答案区一直隐藏
+    $('back').style.display = 'block';
+    $('revealRow').style.display = 'none';
+    $('grades').style.display = 'flex';
+  }
+  function grade(g){ vscode.postMessage({type:'grade', grade:g}); }
+  function showCard(d){
+    revealed = false;
+    $('deck').textContent = d.deck;
+    $('prog').textContent = (d.idx+1) + ' / ' + d.total;
+    $('ctx').textContent = (d.context && d.context.length ? d.context.join(' › ') : '') ;
+    $('front').innerHTML = d.frontHtml;
+    $('back').innerHTML = d.backHtml;
+    $('back').style.display = 'none';
+    $('revealRow').style.display = 'flex';
+    $('grades').style.display = 'none';
+    $('ivl-again').textContent = d.ivls[0];
+    $('ivl-hard').textContent = d.ivls[1];
+    $('ivl-good').textContent = d.ivls[2];
+    $('ivl-easy').textContent = d.ivls[3];
+    const parts = [];
+    if (d.isNew) parts.push('新卡');
+    else if (d.before) parts.push('上次间隔 ' + d.before.interval + ' · 难度 ' + d.before.ease + ' · 到期 ' + d.due);
+    $('meta').textContent = parts.join('  ');
+    $('openNote').textContent = '打开: ' + d.relPath;
+  }
+  function showDone(d){
+    document.querySelector('.card').innerHTML =
+      '<div class="center"><h2>复习完成 🎉</h2>' +
+      '<p>共 ' + d.total + ' 张 · 重来 ' + d.counts.again + ' · 困难 ' + d.counts.hard +
+      ' · 良好 ' + d.counts.good + ' · 简单 ' + d.counts.easy + '</p>' +
+      '<p><button class="primary" id="close-done">关闭</button></p></div>';
+    $('close-done').onclick = ()=> vscode.postMessage({type:'close'});
+  }
+  window.addEventListener('message', (e)=>{
+    const m = e.data;
+    if (!m) return;
+    if (m.type==='card') showCard(m);
+    else if (m.type==='done') showDone(m);
+    else if (m.type==='needReveal') showAnswer();
+    else if (m.type==='revealed') showAnswer();
+    else if (m.type==='writeError') $('meta').textContent = '⚠ 写回失败,本次评级未记录';
+  });
+  $('reveal').onclick = ()=> vscode.postMessage({type:'reveal'});
+  $('again-btn-el').onclick = ()=> grade('again');
+  $('hard-btn-el').onclick = ()=> grade('hard');
+  $('good-btn-el').onclick = ()=> grade('good');
+  $('easy-btn-el').onclick = ()=> grade('easy');
+  $('openNote').onclick = ()=> vscode.postMessage({type:'open'});
+  $('closeBtn').onclick = ()=> vscode.postMessage({type:'close'});
+  document.addEventListener('keydown', (ev)=>{
+    if (ev.target instanceof HTMLInputElement || ev.target instanceof HTMLTextAreaElement) return;
+    if (ev.code==='Space'){ ev.preventDefault(); vscode.postMessage({type:'reveal'}); }
+    else if (ev.key==='1') grade('again');
+    else if (ev.key==='2') grade('hard');
+    else if (ev.key==='3') grade('good');
+    else if (ev.key==='4') grade('easy');
+  });
+})();
+</script>
+</body>
+</html>`;
+}

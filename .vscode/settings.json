@@ -1,0 +1,17 @@
+{
+    "files.exclude": {
+        "node_modules": true,
+        "out": true,
+        "*.vsix": true
+    },
+    "search.exclude": {
+        "node_modules": true,
+        "out": true
+    },
+    "files.watcherExclude": {
+        "node_modules/**": true,
+        "out/**": true,
+        "**/.git/objects/**": true,
+        "**/.git/subtree-cache/**": true
+    }
+}
