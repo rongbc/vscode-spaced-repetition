@@ -5,8 +5,20 @@ import * as vscode from "vscode";
 import { Grade, SchedSeg, SRSConfig } from "../core/model";
 import { newCardSchedule, reviewCardSchedule, ScheduleState } from "../core/sm2";
 import { humanizeInterval } from "../core/dates";
-import { renderMd } from "./md-lite";
+import { renderFullMd, readHljsThemeCss, MdThemeKind } from "./markdown";
 import { writeCardGrade } from "../workspace";
+
+function themeKind(): MdThemeKind {
+    const k = vscode.window.activeColorTheme.kind;
+    return k === vscode.ColorThemeKind.Dark || k === vscode.ColorThemeKind.HighContrast
+        ? "dark"
+        : "light";
+}
+
+function noteDirOf(relPath: string): string {
+    const i = relPath.lastIndexOf("/");
+    return i >= 0 ? relPath.slice(0, i) : "";
+}
 
 export interface ReviewItem {
     relPath: string;
@@ -47,6 +59,15 @@ export class ReviewController {
         this.ctx = ctx;
         this.cfg = cfg;
         this.root = vscode.workspace.workspaceFolders?.[0];
+        // 深/浅色主题切换时只换 hljs 主题 CSS(Webview 的 <style id="themeCss">),
+        // 无需重建整个面板,避免丢失当前卡片与展开状态。
+        vscode.window.onDidChangeActiveColorTheme(
+            () => {
+                if (this.panel) this.post({ type: "theme", css: readHljsThemeCss(themeKind()) });
+            },
+            undefined,
+            this.ctx.subscriptions,
+        );
     }
 
     get active(): boolean {
@@ -75,10 +96,15 @@ export class ReviewController {
             "srs.review",
             title,
             vscode.ViewColumn.Beside,
-            { enableScripts: true, retainContextWhenHidden: true },
+            {
+                enableScripts: true,
+                retainContextWhenHidden: true,
+                // 允许卡片内的本地图片通过 asWebviewUri 加载
+                localResourceRoots: this.root ? [this.root.uri] : undefined,
+            },
         );
         this.panel = panel;
-        panel.webview.html = buildShellHtml();
+        panel.webview.html = buildShellHtml(readHljsThemeCss(themeKind()));
         panel.webview.onDidReceiveMessage(
             (msg) => void this.onMessage(msg),
             undefined,
@@ -105,9 +131,38 @@ export class ReviewController {
             case "open":
                 await this.openNote();
                 return;
+            case "mdLink":
+                await this.handleMdLink(msg.href as string);
+                return;
             case "close":
                 this.panel?.dispose();
                 return;
+        }
+    }
+
+    private async handleMdLink(href: string): Promise<void> {
+        const item = this.items[this.idx];
+        const dir = item ? noteDirOf(item.relPath) : "";
+        try {
+            if (/^https?:|^mailto:/i.test(href)) {
+                await vscode.env.openExternal(vscode.Uri.parse(href));
+                return;
+            }
+            const clean = href.split(/[?#]/)[0];
+            if (clean === "") return;
+            // 其余按本地文件处理:绝对路径相对工作区根,相对路径相对当前笔记目录
+            const uri = clean.startsWith("/")
+                ? this.root
+                    ? vscode.Uri.joinPath(this.root.uri, clean.replace(/^\/+/, ""))
+                    : undefined
+                : this.root
+                    ? vscode.Uri.joinPath(dir === "" ? this.root.uri : uriOfRel(this.root, dir), clean)
+                    : undefined;
+            if (!uri) return;
+            const doc = await vscode.workspace.openTextDocument(uri);
+            await vscode.window.showTextDocument(doc);
+        } catch {
+            vscode.window.showWarningMessage(`无法打开链接:${href}`);
         }
     }
 
@@ -179,6 +234,21 @@ export class ReviewController {
             const s = cur ? reviewCardSchedule(g, cur, this.cfg) : newCardSchedule(g, this.cfg);
             return humanizeInterval(Math.max(0, Math.round(s.interval)));
         });
+        // 本地图片:相对当前笔记目录解析 -> webview URI;解析失败保留原样
+        const dir = item.relPath.includes("/") ? item.relPath.slice(0, item.relPath.lastIndexOf("/")) : "";
+        const webview = this.panel!.webview;
+        const imgSrc =
+            this.root === undefined
+                ? undefined
+                : (src: string) => {
+                      try {
+                          const clean = src.split(/[?#]/)[0];
+                          const base = dir === "" ? this.root!.uri : uriOfRel(this.root!, dir);
+                          return webview.asWebviewUri(vscode.Uri.joinPath(base, clean)).toString();
+                      } catch {
+                          return null;
+                      }
+                  };
         this.post({
             type: "card",
             idx: this.idx,
@@ -186,8 +256,8 @@ export class ReviewController {
             deck: item.deck,
             context: item.context,
             relPath: item.relPath,
-            frontHtml: renderMd(item.front),
-            backHtml: renderMd(item.back),
+            frontHtml: renderFullMd(item.front, imgSrc),
+            backHtml: renderFullMd(item.back, imgSrc),
             isNew: item.isNew,
             due: item.due,
             before: cur
@@ -206,9 +276,9 @@ export class ReviewController {
     }
 }
 
-function buildShellHtml(): string {
+function buildShellHtml(hljsCss: string): string {
     const nonce = Math.random().toString(36).slice(2);
-    const csp = `default-src 'none'; style-src 'unsafe-inline'; script-src 'nonce-${nonce}'; img-src data:;`;
+    const csp = `default-src 'none'; style-src 'unsafe-inline'; script-src 'nonce-${nonce}'; img-src https: data: vscode-webview-resource:;`;
     return `<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -216,6 +286,7 @@ function buildShellHtml(): string {
 <meta http-equiv="Content-Security-Policy" content="${csp}"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>闪卡复习</title>
+<style id="themeCss">${hljsCss}</style>
 <style>
 body { font-family: var(--vscode-font-family); color: var(--vscode-foreground); padding: 14px 18px; }
 .hd { margin-bottom: 10px; }
@@ -224,13 +295,32 @@ body { font-family: var(--vscode-font-family); color: var(--vscode-foreground); 
 .prog { color: var(--vscode-descriptionForeground); }
 .ctx { color: var(--vscode-descriptionForeground); font-size:12px; margin-top:2px; }
 .card { border:1px solid var(--vscode-panel-border); border-radius:8px; padding:16px 18px; }
-.front h1,.front h2,.front h3,.front h4 { margin:.2em 0; }
-.line,.li { margin:2px 0; }
-pre { background: var(--vscode-textCodeBlock-background); padding:8px 10px; border-radius:6px; overflow:auto; font-size:12.5px; white-space:pre-wrap; }
-code { font-family: var(--vscode-editor-font-family); background: var(--vscode-textCodeBlock-background); padding:1px 4px; border-radius:3px; }
+/* ---- Markdown 内容(.md)排版,对齐 VS Code Markdown 预览观感 ---- */
+.md { word-wrap:break-word; }
+.md h1,.md h2,.md h3,.md h4,.md h5,.md h6 { font-weight:600; line-height:1.3; margin:.55em 0 .25em; }
+.md h1 { font-size:1.45em; } .md h2 { font-size:1.3em; } .md h3 { font-size:1.15em; }
+.md h4,.md h5,.md h6 { font-size:1.05em; }
+.md p { margin:.35em 0; }
+.md ul,.md ol { margin:.35em 0; padding-left:1.7em; }
+.md li { margin:.12em 0; }
+.md blockquote { margin:.45em 0; padding:.15em .9em; border-left:3px solid var(--vscode-textBlockQuote-border); background:var(--vscode-textBlockQuote-background); color:var(--vscode-descriptionForeground); }
+.md hr { border:none; border-top:1px solid var(--vscode-panel-border); margin:.9em 0; }
+.md img { max-width:100%; border-radius:4px; }
+.md a { color: var(--vscode-textLink-foreground); text-decoration:none; }
+.md a:hover { text-decoration:underline; }
+.md table { border-collapse:collapse; margin:.5em 0; display:block; max-width:100%; overflow-x:auto; font-size:.95em; }
+.md th,.md td { border:1px solid var(--vscode-panel-border); padding:3px 10px; }
+.md th { background: var(--vscode-textBlockQuote-background); font-weight:600; }
+/* 行内代码:仅非 <pre> 内的 code 打底色,避免给高亮代码块再叠一层 */
+.md code:not(pre code) { font-family:var(--vscode-editor-font-family); background:var(--vscode-textCodeBlock-background); padding:1px 4px; border-radius:3px; font-size:.92em; }
+.md pre { background: var(--vscode-textCodeBlock-background); padding:8px 10px; border-radius:6px; overflow:auto; font-size:12.5px; line-height:1.45; }
+/* hljs 主题自带的背景覆盖为 VSCode 变量,文字色/令牌色仍由主题 CSS 决定 */
+.md pre.hljs { background: var(--vscode-textCodeBlock-background); }
+.md pre code { background:transparent; padding:0; font-family:var(--vscode-editor-font-family); }
 .back { display:none; border-top:1px dashed var(--vscode-panel-border); margin-top:12px; padding-top:12px; }
 .btns { display:flex; gap:8px; margin-top:14px; flex-wrap:wrap; }
-.btns button { flex:1; min-width:100px; padding:7px 4px; border-radius:6px; border:1px solid var(--vscode-panel-border); background:transparent; cursor:pointer; }
+button { color: var(--vscode-foreground); }
+.btns button { flex:1; min-width:100px; padding:7px 4px; border-radius:6px; border:1px solid var(--vscode-panel-border); background:transparent; color:var(--vscode-foreground); cursor:pointer; }
 .btns button:hover { background: var(--vscode-button-hoverBackground); color: var(--vscode-button-foreground); }
 button.primary { background: var(--vscode-button-background); color: var(--vscode-button-foreground); border-color:transparent; }
 button.primary:hover { background: var(--vscode-button-hoverBackground); }
@@ -247,8 +337,8 @@ a { color: var(--vscode-textLink-foreground); cursor:pointer; text-decoration:no
   <div class="ctx" id="ctx"></div>
 </div>
 <div class="card">
-  <div class="front" id="front"></div>
-  <div class="back" id="back"></div>
+  <div class="front md" id="front"></div>
+  <div class="back md" id="back"></div>
   <div class="btns" id="revealRow">
     <button class="primary" id="reveal">显示答案 (空格)</button>
   </div>
@@ -313,7 +403,18 @@ a { color: var(--vscode-textLink-foreground); cursor:pointer; text-decoration:no
     else if (m.type==='needReveal') showAnswer();
     else if (m.type==='revealed') showAnswer();
     else if (m.type==='writeError') $('meta').textContent = '⚠ 写回失败,本次评级未记录';
+    else if (m.type==='theme') { const el = $('themeCss'); if (el) el.textContent = m.css; }
   });
+  // Markdown 内链接:拦截后交给扩展端(外链 openExternal / 本地文件打开)
+  function onMdClick(ev){
+    const t = ev.target;
+    const a = t && t.closest ? t.closest('a[href]') : null;
+    if (!a) return;
+    ev.preventDefault();
+    vscode.postMessage({type:'mdLink', href: a.getAttribute('href')});
+  }
+  $('front').addEventListener('click', onMdClick);
+  $('back').addEventListener('click', onMdClick);
   $('reveal').onclick = ()=> vscode.postMessage({type:'reveal'});
   $('again-btn-el').onclick = ()=> grade('again');
   $('hard-btn-el').onclick = ()=> grade('hard');

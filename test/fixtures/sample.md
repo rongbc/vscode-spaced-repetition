@@ -1,50 +1,59 @@
-# 闪卡解析 fixture
+# Flashcards fixture
 
-本文用于验证插件解析器。语法与 obsidian-spaced-repetition 完全一致:
-空行即卡片边界;单行卡 `::`/`:::`;多行卡 `?`/`??` 单独成行、前后内容连续(无空行间隔)。
+This note exercises the plugin parser and the review-panel Markdown renderer.
+Card syntax matches obsidian-spaced-repetition: a blank line ends a card;
+single-line cards use `::` / `:::`, multi-line cards use `?` / `??` on a line
+of their own with contiguous content around them.
 
-#flashcards/嵌入式/中断
+#flashcards/os/interrupts
 
-# 定时器与中断
+# Timers & Interrupts
 
-## 上半部下半部
+## Top half vs bottom half
 
-中断处理的上半部/下半部各有什么特点？
+What are the characteristics of the top half and the bottom half of interrupt handling?
 ?
-上半部：中断处理函数，要求快，禁止睡眠，处理紧急工作。
-下半部：softirq / tasklet / workqueue，处理可延迟工作，允许睡眠。
+| Half | Where it runs | Can it sleep? |
+| --- | --- | --- |
+| top half | hardirq handler | no |
+| bottom half | workqueue / tasklet / softirq | workqueue only |
+**Top half** — the *interrupt handler*: must run fast and must not sleep; acknowledge the device immediately. **Bottom half** — deferred work via `softirq`, `tasklet`, or `workqueue`.
 ```c
-const require = createRequire(import.meta.url);
-const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const dates = require(join(root, "out/core/dates.js"));
-const sm2 = require(join(root, "out/core/sm2.js"));
-const model = require(join(root, "out/core/model.js"));
-const flashcards = require(join(root, "out/parser/flashcards.js"));
-const noteReview = require(join(root, "out/parser/note-review.js"));
-const writer = require(join(root, "out/store/note-writer.js"));
-const mdLite = require(join(root, "out/ui/md-lite.js"));
+void irq_handler(struct device *dev)
+{
+    disable_irq(dev->irq); /* top half: acknowledge quickly */
+    schedule_work(&dev->bottom_work);
+    enable_irq(dev->irq);
+}
 ```
+> Rule of thumb: keep the top half tiny and hand the heavy lifting to a `workqueue`.
+---
+### Deferred work
+- softirq — cannot sleep
+- tasklet — cannot sleep either
+- workqueue — process context, sleeping is fine
+Read the [kernel documentation](https://docs.kernel.org/) or browse https://kernel.org; the old `tasklet` API is ~~deprecated~~ but still common. Icon: ![extension icon](./srs-icon.svg)
 
-## 单行卡
+## Single-line cards
 
-`fork()` 在子进程中的返回值是什么？::0
+`fork()` in the child process returns?::0
 
-`fork()` 在父进程中的返回值是什么？::子进程 PID
+`fork()` in the parent process returns?::the child's PID
 
-Question ::Answer
+Plain question ::Plain answer
 
-## 行首标签卡
+## Leading-tag card
 
-#flashcards/科学 高亮文本::这是一张带行首标签的单卡
+#flashcards/cpp Who created C++?::Bjarne Stroustrup — see [cppreference](https://en.cppreference.com/w/)
 
-## 反转卡
+## Reversed single-line card
 
-反转示例:::反过来也能考
+Reverse me:::asked the **other way** with `inline code` and *emphasis*
 
-## 多行反转
+## Multi-line reversed card
 
-LED 亮灭原理
+How does an LED blink?
 ??
-GPIO 输出电平翻转即可
+Toggle the **GPIO** output level high and low via `gpiod_set_value()`.
 
-<!-- 这段注释不该解析出任何卡片 -->
+<!-- this comment must not become any card -->

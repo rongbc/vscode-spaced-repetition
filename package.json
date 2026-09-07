@@ -155,6 +155,8 @@
         "typescript": "^5.5.4"
     },
     "dependencies": {
-        "clozecraft": "^0.4.0"
+        "clozecraft": "^0.4.0",
+        "highlight.js": "^11.12.0",
+        "markdown-it": "^15.0.1"
     }
 }

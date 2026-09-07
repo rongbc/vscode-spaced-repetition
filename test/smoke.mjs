@@ -15,7 +15,7 @@ const model = require(join(root, "out/core/model.js"));
 const flashcards = require(join(root, "out/parser/flashcards.js"));
 const noteReview = require(join(root, "out/parser/note-review.js"));
 const writer = require(join(root, "out/store/note-writer.js"));
-const mdLite = require(join(root, "out/ui/md-lite.js"));
+const fullMd = require(join(root, "out/ui/markdown.js"));
 
 const cfg = { ...model.DEFAULT_CONFIG };
 let failed = 0;
@@ -160,42 +160,75 @@ const sampleText = readFileSync(join(root, "test/fixtures/sample.md"), "utf8");
 const parsed = parse(sampleText, { deckSource: "folder" });
 const B = parsed.blocks;
 const frontCount = (sub) => B.filter((b) => b.sides[0].front.includes(sub)).length;
-check("块数=7(上半部/下半部、fork子、fork父、Question、行首标签、反转、多行反转)", () => {
+check("块数=7(interrupt halves、fork child、fork parent、plain、C++ tag、reverse、LED)", () => {
     assert.strictEqual(B.length, 7, JSON.stringify(B.map((b) => b.sides[0].front.slice(0, 16))));
 });
-check("多行卡 back 含答案,渲染非空(修复:答案应显示)", () => {
-    const b = B.find((x) => x.sides[0].front.includes("上半部/下半部"));
-    assert.ok(b && b.sides[0].back.includes("softirq"));
-    const html = mdLite.renderMd(b.sides[0].back);
-    assert.ok(html.includes("softirq"), "多行卡答案 HTML 不应为空");
-});
-check("代码围栏在 <pre> 内逐行保留换行(修复:代码段不再粘成一行)", () => {
-    const b = B.find((x) => x.sides[0].front.includes("上半部/下半部"));
-    assert.ok(b && b.sides[0].back.includes("```c"));
-    const html = mdLite.renderMd(b.sides[0].back);
-    const pre = html.match(/<pre>[\s\S]*?<\/pre>/);
-    assert.ok(pre, "答案应渲染出 <pre> 代码块");
-    const code = pre[0].replace(/<\/?pre>/g, "");
-    const jsLines = b.sides[0].back.split("\n").filter((l) => l.includes("createRequire") || l.includes("join(dirname"));
-    for (const l of jsLines) {
-        assert.ok(code.includes(l.replace(/"/g, "&quot;")), `围栏内缺少整行: ${l.slice(0, 40)}`);
-    }
-    assert.ok(code.includes("\n"), "<pre> 内代码行之间应保留 \\n");
-});
-check("行首标签卡牌组=科学,覆盖笔记标签", () => {
-    const b = B.find((x) => x.sides[0].front.includes("高亮文本"));
+check("行首标签卡牌组=cpp,覆盖笔记标签", () => {
+    const b = B.find((x) => x.sides[0].front.includes("created C++"));
     assert.ok(b);
-    assert.strictEqual(b.deck, "科学");
+    assert.strictEqual(b.deck, "cpp");
 });
-check("普通卡牌组=嵌入式/中断(标签路径)", () => {
+check("普通卡牌组=os/interrupts(标签路径)", () => {
     for (const b of B) {
-        if (b.deck === "科学") continue;
-        assert.strictEqual(b.deck, "嵌入式/中断", b.sides[0].front);
+        if (b.deck === "cpp") continue;
+        assert.strictEqual(b.deck, "os/interrupts", b.sides[0].front);
     }
 });
 check("HTML 注释内无卡", () => {
-    assert.strictEqual(frontCount("这段注释"), 0);
+    assert.strictEqual(frontCount("must not become any card"), 0);
 });
+
+console.log("== 复习面板全量渲染(markdown-it + highlight.js)==");
+{
+    const b = B.find((x) => x.sides[0].front.includes("top half"));
+    assert.ok(b);
+    const html = fullMd.renderFullMd(b.sides[0].back);
+    check("代码围栏高亮渲染:c 语言 -> language-c 与 hljs 令牌,换行保留", () => {
+        assert.ok(html.includes("softirq"), "多行卡答案 HTML 不应为空");
+        assert.ok(html.includes('<pre class="hljs"><code class="language-c">'), "缺少高亮围栏开头");
+        assert.ok(html.includes("</code></pre>"));
+        const code = html.slice(html.indexOf('<pre class="hljs">'));
+        assert.ok(code.includes("\n"), "围栏内换行应保留");
+        assert.ok(/<span class="hljs-/.test(html), "应有 hljs 令牌着色 span");
+    });
+    check("fixture 卡1 答案覆盖:表格/引用/hr/标题/列表/链接/图片/删除线", () => {
+        for (const w of [
+            "<table>",
+            "<blockquote>",
+            "<hr>",
+            "<h3>Deferred work</h3>",
+            "<ul>",
+            '<a href="https://docs.kernel.org/">',
+            "<img src=",
+            "<s>deprecated</s>",
+            "<code>softirq</code>",
+        ]) {
+            assert.ok(html.includes(w), `fixture 渲染缺少: ${w}`);
+        }
+    });
+    check("表格/引用/列表/删除线等元素完整渲染", () => {
+        const t = "|a|b|\n|-|-|\n|1|2|\n\n> 引用\n\n- 项1\n- 项2\n\n~~划掉~~";
+        const h = fullMd.renderFullMd(t);
+        assert.ok(h.includes("<table>") && h.includes("<th>a</th>"), "表格缺失");
+        assert.ok(h.includes("<blockquote>"), "引用缺失");
+        assert.ok(h.includes("<li>项1</li>"), "列表缺失");
+        assert.ok(h.includes("<s>划掉</s>"), "删除线缺失");
+    });
+    check("html:false —— 笔记内原始 HTML 被转义不执行", () => {
+        const h = fullMd.renderFullMd('<script>alert(1)</script> 与 <b>x</b>');
+        assert.ok(!h.includes("<script>"), "script 未被转义");
+        assert.ok(h.includes("&lt;script&gt;"), "应输出转义文本");
+        assert.ok(!/<b>x<\/b>/.test(h), "行内 HTML 不应原样输出");
+    });
+    check("本地图片经 resolveLocalSrc 钩子改写 src", () => {
+        const h = fullMd.renderFullMd("![图](img/a.png)", (s) => "webview://" + s);
+        assert.ok(h.includes('src="webview://img/a.png"'), h);
+    });
+    check("深色 hljs 主题 CSS 可读取", () => {
+        const css = fullMd.readHljsThemeCss("dark");
+        assert.ok(css.includes(".hljs-keyword"), "缺少 hljs 令牌样式");
+    });
+}
 
 console.log("== 与 vendor 上游 parser 的一致性 ==");
 {
@@ -249,12 +282,12 @@ console.log("== 与 vendor 上游 parser 的一致性 ==");
 
 console.log("== 写回回环 ==");
 {
-    const target = B.find((x) => x.sides[0].front.includes("子进程中的返回值"));
+    const target = B.find((x) => x.sides[0].front.includes("child process"));
     const ord = B.indexOf(target);
     const newSeg = { due: dates.addDays(todays(), 4), interval: 4, ease: 270 };
     const text2 = writer.setCardScheduleText(sampleText, cfg, "x.md", ord, [newSeg]);
     assert.ok(
-        text2.includes(`子进程中的返回值是什么？::0\n<!--SR:!${newSeg.due},4,270-->`),
+        text2.includes(`in the child process returns?::0\n<!--SR:!${newSeg.due},4,270-->`),
         "新注释应写在卡片后一行",
     );
     const p2 = flashcards.parseFlashcards("x.md", text2, cfg);
@@ -269,7 +302,7 @@ console.log("== 写回回环 ==");
 }
 {
     // 反转卡首次写回:真实段 + 占位段
-    const target = B.find((x) => x.sides[0].front.includes("反转示例"));
+    const target = B.find((x) => x.sides[0].front.includes("Reverse me"));
     const ord = B.indexOf(target);
     const newSeg = { due: dates.addDays(todays(), 4), interval: 4, ease: 270 };
     const text = writer.setCardScheduleText(sampleText, cfg, "x.md", ord, [newSeg, null]);
@@ -279,12 +312,12 @@ console.log("== 写回回环 ==");
 }
 {
     // 多行卡写回:答案内容不被破坏
-    const target = B.find((x) => x.sides[0].front.includes("LED 亮灭原理"));
+    const target = B.find((x) => x.sides[0].front.includes("LED blink"));
     const ord = B.indexOf(target);
     const newSeg = { due: dates.addDays(todays(), 4), interval: 4, ease: 270 };
     const text = writer.setCardScheduleText(sampleText, cfg, "x.md", ord, [newSeg, null]);
     const p = flashcards.parseFlashcards("x.md", text, cfg);
-    const tb = p.blocks.find((x) => x.sides[0].front.includes("LED 亮灭原理"));
+    const tb = p.blocks.find((x) => x.sides[0].front.includes("LED blink"));
     assert.ok(tb && tb.sides[0].back.includes("GPIO"), "多行卡答案被破坏");
     assert.strictEqual(p.blocks.length, B.length);
 }
