@@ -10,7 +10,7 @@ import { ReviewController, ReviewItem, uriOfRel } from "./ui/review";
 import { NotesTreeProvider } from "./ui/notesTree";
 import { StatusBar } from "./ui/statusBar";
 import { noteHasReviewTag, readNoteSr } from "./parser/note-review";
-import { t } from "./i18n";
+import { t, resolveLang } from "./i18n";
 
 let cfg: SRSConfig = readConfig();
 
@@ -190,7 +190,7 @@ async function reviewNoteDoc(
                     label: gradeLabel(g),
                     description: t("note.next", {
                         due: s.due,
-                        interval: humanizeInterval(Math.max(0, Math.round(s.interval))),
+                        interval: humanizeInterval(Math.max(0, Math.round(s.interval)), resolveLang()),
                     }),
                 };
             },
@@ -221,7 +221,7 @@ async function reviewNoteDoc(
             relPath,
             grade: gradeLabel(grade),
             due: s.due,
-            interval: humanizeInterval(s.interval),
+            interval: humanizeInterval(s.interval, resolveLang()),
         }),
         5000,
     );

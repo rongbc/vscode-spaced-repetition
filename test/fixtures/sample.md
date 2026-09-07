@@ -33,6 +33,7 @@ void irq_handler(struct device *dev)
 - tasklet — cannot sleep either
 - workqueue — process context, sleeping is fine
 Read the [kernel documentation](https://docs.kernel.org/) or browse https://kernel.org; the old `tasklet` API is ~~deprecated~~ but still common. Icon: ![extension icon](./srs-icon.svg)
+Inline math: $E = mc^2$; display math: $$E = mc^2$$; a square root: $\sqrt{2}$.
 
 ## Single-line cards
 

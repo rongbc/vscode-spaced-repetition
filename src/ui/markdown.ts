@@ -6,6 +6,8 @@
 import * as fs from "fs";
 import MarkdownIt from "markdown-it";
 import hljs from "highlight.js";
+import katex from "katex";
+import texmath from "markdown-it-texmath";
 
 export type MdThemeKind = "light" | "dark";
 
@@ -29,6 +31,12 @@ const md = new MarkdownIt({
     },
 });
 md.enable("strikethrough"); // ~~删除线~~(内置规则,默认关闭)
+// LaTeX 公式:$…$ / $$…$$(KaTeX 服务端渲染成 HTML)
+md.use(texmath, {
+    engine: katex,
+    delimiters: "dollars",
+    katexOptions: { throwOnError: false, strict: false, trust: false },
+});
 
 /** 读取 highlight.js 某主题的 CSS(浅色 github / 深色 atom-one-dark)。 */
 export function readHljsThemeCss(kind: MdThemeKind): string {
@@ -36,6 +44,15 @@ export function readHljsThemeCss(kind: MdThemeKind): string {
     try {
         const p = require.resolve(`highlight.js/styles/${name}.css`);
         return fs.readFileSync(p, "utf8");
+    } catch {
+        return "";
+    }
+}
+
+/** KaTeX 的 CSS(公式渲染布局与字体回退)。 */
+export function readKatexCss(): string {
+    try {
+        return fs.readFileSync(require.resolve("katex/dist/katex.min.css"), "utf8");
     } catch {
         return "";
     }

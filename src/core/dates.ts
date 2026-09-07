@@ -36,11 +36,9 @@ export function isDue(due: string): boolean {
     return due <= todayStr();
 }
 
-/** 人类可读的间隔描述,如 "2个月"、"3天" */
-export function humanizeInterval(days: number): string {
-    const m = Math.round(days / 30.4375);
-    const y = Math.round(days / 365.25);
-    if (m < 1) return `${days}天`;
-    if (y < 1) return `${m}个月`;
-    return `${y}年`;
+/** 人类可读的间隔描述,统一按天显示,如 "3天" / "3 days";lang 决定单位文案(en/zh-cn) */
+export function humanizeInterval(days: number, lang: "en" | "zh-cn" = "en"): string {
+    const d = Math.round(days);
+    if (lang === "zh-cn") return `${d}天`;
+    return d === 1 ? "1 day" : `${d} days`;
 }

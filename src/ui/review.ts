@@ -5,7 +5,12 @@ import * as vscode from "vscode";
 import { Grade, SchedSeg, SRSConfig } from "../core/model";
 import { newCardSchedule, reviewCardSchedule, ScheduleState } from "../core/sm2";
 import { humanizeInterval } from "../core/dates";
-import { renderFullMd, readHljsThemeCss, MdThemeKind } from "./markdown";
+import {
+    renderFullMd,
+    readHljsThemeCss,
+    readKatexCss,
+    MdThemeKind,
+} from "./markdown";
 import { writeCardGrade } from "../workspace";
 import { t, langTag } from "../i18n";
 
@@ -105,7 +110,8 @@ export class ReviewController {
             },
         );
         this.panel = panel;
-        panel.webview.html = buildShellHtml(readHljsThemeCss(themeKind()));
+        const katexCss = readKatexCss();
+        panel.webview.html = buildShellHtml(readHljsThemeCss(themeKind()), katexCss);
         panel.webview.onDidReceiveMessage(
             (msg) => void this.onMessage(msg),
             undefined,
@@ -244,7 +250,7 @@ export class ReviewController {
             : null;
         const ivls = (["again", "hard", "good", "easy"] as Grade[]).map((g) => {
             const s = cur ? reviewCardSchedule(g, cur, this.cfg) : newCardSchedule(g, this.cfg);
-            return humanizeInterval(Math.max(0, Math.round(s.interval)));
+            return humanizeInterval(Math.max(0, Math.round(s.interval)), langTag());
         });
         // 本地图片:相对当前笔记目录解析 -> webview URI;解析失败保留原样
         const dir = item.relPath.includes("/") ? item.relPath.slice(0, item.relPath.lastIndexOf("/")) : "";
@@ -261,7 +267,7 @@ export class ReviewController {
                           return null;
                       }
                   };
-        const dur = humanizeInterval(Math.max(0, Math.round(cur ? cur.interval : 0)));
+        const dur = humanizeInterval(Math.max(0, Math.round(cur ? cur.interval : 0)), langTag());
         const metaText = item.isNew
             ? t("meta.new")
             : cur
@@ -280,7 +286,7 @@ export class ReviewController {
             due: item.due,
             before: cur
                 ? {
-                      interval: humanizeInterval(Math.max(0, Math.round(cur.interval))),
+                      interval: humanizeInterval(Math.max(0, Math.round(cur.interval)), langTag()),
                       ease: cur.ease,
                       due: cur.due,
                   }
@@ -296,7 +302,7 @@ export class ReviewController {
     }
 }
 
-function buildShellHtml(hljsCss: string): string {
+function buildShellHtml(hljsCss: string, katexCss: string): string {
     const nonce = Math.random().toString(36).slice(2);
     const csp = `default-src 'none'; style-src 'unsafe-inline'; script-src 'nonce-${nonce}'; img-src https: data: vscode-webview-resource:;`;
     return `<!DOCTYPE html>
@@ -307,6 +313,7 @@ function buildShellHtml(hljsCss: string): string {
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>${t("app.title")}</title>
 <style id="themeCss">${hljsCss}</style>
+<style>${katexCss}</style>
 <style>
 body { font-family: var(--vscode-font-family); color: var(--vscode-foreground); padding: 14px 18px; }
 .hd { margin-bottom: 10px; }
