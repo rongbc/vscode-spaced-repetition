@@ -24,6 +24,21 @@
         "configuration": {
             "title": "Spaced Repetition 间隔重复复习",
             "properties": {
+                "srs.language": {
+                    "type": "string",
+                    "enum": [
+                        "auto",
+                        "en",
+                        "zh-cn"
+                    ],
+                    "enumDescriptions": [
+                        "Auto: follow the VS Code UI language / 自动跟随 VS Code 界面语言",
+                        "English",
+                        "简体中文"
+                    ],
+                    "default": "auto",
+                    "description": "Plugin display language. Follows the VS Code UI language when 'auto'. 插件显示语言;auto 时使用 VS Code 界面语言。"
+                },
                 "srs.flashcardTags": {
                     "type": "array",
                     "items": {
@@ -100,19 +115,19 @@
         "commands": [
             {
                 "command": "srs.reviewDueFlashcards",
-                "title": "复习到期闪卡 (全部到期/新卡)"
+                "title": "%srs.command.reviewDue%"
             },
             {
                 "command": "srs.reviewAllFlashcards",
-                "title": "突击复习闪卡 (忽略调度)"
+                "title": "%srs.command.reviewAll%"
             },
             {
                 "command": "srs.openNotesReviewQueue",
-                "title": "打开到期笔记复习队列"
+                "title": "%srs.command.openQueue%"
             },
             {
                 "command": "srs.reviewCurrentNote",
-                "title": "复习当前笔记并评级",
+                "title": "%srs.command.reviewNote%",
                 "when": "resourceExtname == .md"
             }
         ],
@@ -120,7 +135,7 @@
             "activitybar": [
                 {
                     "id": "srs",
-                    "title": "间隔复习",
+                    "title": "%srs.view.container%",
                     "icon": "media/srs-icon.svg"
                 }
             ]
@@ -129,7 +144,7 @@
             "srs": [
                 {
                     "id": "srs.dueNotes",
-                    "name": "到期笔记 (#review)"
+                    "name": "%srs.view.dueNotes%"
                 }
             ]
         },

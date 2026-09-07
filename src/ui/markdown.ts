@@ -4,7 +4,6 @@
 // 安全基线:html:false —— 笔记内容里的原始 HTML 一律转义,不执行。
 
 import * as fs from "fs";
-import * as path from "path";
 import MarkdownIt from "markdown-it";
 import hljs from "highlight.js";
 
@@ -39,41 +38,6 @@ export function readHljsThemeCss(kind: MdThemeKind): string {
         return fs.readFileSync(p, "utf8");
     } catch {
         return "";
-    }
-}
-
-/**
- * 把 Markdown 图片 src 解析为本地绝对文件路径(含 ../ 折叠、越界拒绝、存在性检查)。
- * - noteDirAbs:当前笔记所在目录的绝对路径
- * - rootAbs:工作区根绝对路径;非空时拒绝解析到根目录之外
- * - 返回 null 表示无法作为本地图片加载(调用方应保留原 src)
- */
-export function resolveLocalImageFsPath(
-    noteDirAbs: string,
-    src: string,
-    rootAbs: string | null,
-): string | null {
-    const clean = src.split(/[?#]/)[0].trim();
-    if (clean === "" || /^(data:|https?:|file:|vscode-webview-resource:)/i.test(clean)) return null;
-    let decoded: string;
-    try {
-        decoded = decodeURIComponent(clean);
-    } catch {
-        decoded = clean;
-    }
-    const abs = path.normalize(
-        path.isAbsolute(decoded) || /^[A-Za-z]:[\\/]/.test(decoded)
-            ? decoded
-            : path.join(noteDirAbs, decoded),
-    );
-    if (rootAbs !== null) {
-        const rootNorm = path.normalize(rootAbs);
-        if (abs !== rootNorm && !abs.startsWith(rootNorm + path.sep)) return null; // 越界
-    }
-    try {
-        return fs.existsSync(abs) && fs.statSync(abs).isFile() ? abs : null;
-    } catch {
-        return null;
     }
 }
 

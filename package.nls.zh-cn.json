@@ -1,0 +1,9 @@
+{
+    "srs.command.reviewDue": "复习到期闪卡 (全部到期/新卡)",
+    "srs.command.reviewAll": "突击复习闪卡 (忽略调度)",
+    "srs.command.openQueue": "打开到期笔记复习队列",
+    "srs.command.reviewNote": "复习当前笔记并评级",
+    "srs.command.reviewNoteFromTree": "打开并复习笔记",
+    "srs.view.dueNotes": "到期笔记 (#review)",
+    "srs.view.container": "间隔复习"
+}

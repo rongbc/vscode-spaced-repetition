@@ -10,6 +10,7 @@ import { ReviewController, ReviewItem, uriOfRel } from "./ui/review";
 import { NotesTreeProvider } from "./ui/notesTree";
 import { StatusBar } from "./ui/statusBar";
 import { noteHasReviewTag, readNoteSr } from "./parser/note-review";
+import { t } from "./i18n";
 
 let cfg: SRSConfig = readConfig();
 
@@ -68,59 +69,61 @@ export async function activate(ctx: vscode.ExtensionContext): Promise<void> {
             bundle.tree.refresh(scan.notes);
             return;
         } catch (e) {
-            vscode.window.showWarningMessage(`间隔复习扫描失败:${String(e)}`);
+            vscode.window.showWarningMessage(t("msg.scanFailed", { msg: String(e) }));
         }
     };
 
     ctx.subscriptions.push(
         vscode.commands.registerCommand("srs.reviewDueFlashcards", async () => {
             const scan = await scanWorkspace(cfg);
+            const allDueLabel = t("pick.allDue");
             const picks: vscode.QuickPickItem[] = [
                 {
-                    label: "全部到期 + 新卡",
+                    label: allDueLabel,
                     description: scan.decks
                         .reduce((s, d) => s + d.due + d.fresh, 0)
                         .toString(),
-                    detail: `共 ${scan.dueBlocks.length} 项待复习`,
+                    detail: t("pick.pending", { n: scan.dueBlocks.length }),
                 },
                 ...scan.decks
                     .filter((d) => d.due + d.fresh > 0)
                     .map((d) => ({
                         label: d.name,
-                        description: `到期 ${d.due} · 新 ${d.fresh}`,
+                        description: t("pick.deckDue", { due: d.due, fresh: d.fresh }),
                     })),
             ];
             const chosen = await vscode.window.showQuickPick(picks, {
-                placeHolder: "选择要复习的牌组",
-                title: "复习到期闪卡",
+                placeHolder: t("pick.chooseDeck"),
+                title: t("pick.reviewAllDue"),
             });
             if (!chosen) return;
-            const deckName = chosen.label === "全部到期 + 新卡" ? null : chosen.label;
+            const deckName = chosen.label === allDueLabel ? null : chosen.label;
             const items = deckName
                 ? scan.dueBlocks.filter((d) => d.block.deck === deckName)
                 : scan.dueBlocks;
-            bundle.controller.start(dueBlocksToReviewItems(items), deckName ? `复习: ${deckName}` : "到期闪卡复习");
+            bundle.controller.start(dueBlocksToReviewItems(items), deckName ? t("pick.reviewDeck", { deck: deckName }) : t("pick.reviewAllDue"));
             void rescan();
         }),
         vscode.commands.registerCommand("srs.reviewAllFlashcards", async () => {
             const scan = await scanWorkspace(cfg);
+            const allLabel = t("pick.allFlashcards");
             const picks: vscode.QuickPickItem[] = [
-                { label: "全部闪卡(突击)", description: String(scan.allBlocks.length) },
+                { label: allLabel, description: String(scan.allBlocks.length) },
                 ...scan.decks.map((d) => ({
                     label: d.name,
-                    description: `共 ${d.total} 张`,
+                    description: t("pick.deckTotal", { total: d.total }),
                 })),
             ];
             const chosen = await vscode.window.showQuickPick(picks, {
-                placeHolder: "突击复习:忽略调度,任意复习",
-                title: "突击复习闪卡",
+                placeHolder: t("pick.cramPlaceholder"),
+                title: t("pick.cramTitle"),
             });
             if (!chosen) return;
-            const deckName = chosen.label === "全部闪卡(突击)" ? null : chosen.label;
+            const deckName = chosen.label === allLabel ? null : chosen.label;
             const items = deckName
                 ? scan.allBlocks.filter((d) => d.block.deck === deckName)
                 : scan.allBlocks;
-            bundle.controller.start(dueBlocksToReviewItems(items), deckName ? `突击: ${deckName}` : "突击复习");
+            bundle.controller.start(dueBlocksToReviewItems(items), deckName ? t("pick.cramDeck", { deck: deckName }) : t("pick.cramAll"));
         }),
         vscode.commands.registerCommand("srs.openNotesReviewQueue", async () => {
             await vscode.commands.executeCommand("srs.dueNotes.focus");
@@ -132,7 +135,7 @@ export async function activate(ctx: vscode.ExtensionContext): Promise<void> {
         vscode.commands.registerCommand("srs.reviewCurrentNote", async () => {
             const ed = vscode.window.activeTextEditor;
             if (!ed || ed.document.languageId !== "markdown") {
-                vscode.window.showWarningMessage("请先打开一篇 Markdown 笔记");
+                vscode.window.showWarningMessage(t("msg.openMdFirst"));
                 return;
             }
             const root = vscode.workspace.workspaceFolders?.[0];
@@ -172,9 +175,7 @@ async function reviewNoteDoc(
     text: string,
 ): Promise<void> {
     if (!noteHasReviewTag(text, cfg)) {
-        vscode.window.showInformationMessage(
-            `该笔记没有整篇复习标签(如 #review),不参与笔记复习队列。`,
-        );
+        vscode.window.showInformationMessage(t("note.noTag"));
         return;
     }
     const sr = readNoteSr(text);
@@ -187,20 +188,23 @@ async function reviewNoteDoc(
                 const s = cur ? reviewCardSchedule(g, cur, cfg) : newCardSchedule(g, cfg);
                 return {
                     label: gradeLabel(g),
-                    description: `下次 ${s.due} (${humanizeInterval(Math.max(0, Math.round(s.interval)))})`,
+                    description: t("note.next", {
+                        due: s.due,
+                        interval: humanizeInterval(Math.max(0, Math.round(s.interval))),
+                    }),
                 };
             },
         );
         const picked = await vscode.window.showQuickPick(picks, {
-            placeHolder: `复习笔记: ${relPath}`,
-            title: "整篇笔记复习 — 回忆得怎么样?",
+            placeHolder: t("note.placeholder", { relPath }),
+            title: t("note.title"),
         });
         if (!picked) return null;
         const labelToGrade: Record<string, Grade> = {
-            "再次学习": "again",
-            "困难": "hard",
-            "良好": "good",
-            "简单": "easy",
+            [gradeLabel("again")]: "again",
+            [gradeLabel("hard")]: "hard",
+            [gradeLabel("good")]: "good",
+            [gradeLabel("easy")]: "easy",
         };
         return labelToGrade[picked.label] ?? null;
     };
@@ -209,11 +213,16 @@ async function reviewNoteDoc(
     const s = cur ? reviewCardSchedule(grade, cur, cfg) : newCardSchedule(grade, cfg);
     const ok = await writeNoteGrade(uri, text, s);
     if (!ok) {
-        vscode.window.showWarningMessage(`笔记调度写回失败:${relPath}(文件可能正被修改)`);
+        vscode.window.showWarningMessage(t("note.writeFail", { relPath }));
         return;
     }
     vscode.window.setStatusBarMessage(
-        `$(check) ${relPath} 已评级「${gradeLabel(grade)}」,下次 ${s.due} (${humanizeInterval(s.interval)})`,
+        t("note.rated", {
+            relPath,
+            grade: gradeLabel(grade),
+            due: s.due,
+            interval: humanizeInterval(s.interval),
+        }),
         5000,
     );
     void (async () => {
@@ -228,10 +237,10 @@ async function reviewNoteDoc(
 
 function gradeLabel(g: Grade): string {
     switch (g) {
-        case "again": return "再次学习 (重来)";
-        case "hard": return "困难";
-        case "good": return "良好";
-        case "easy": return "简单";
+        case "again": return t("grade.againLong");
+        case "hard": return t("grade.hard");
+        case "good": return t("grade.good");
+        case "easy": return t("grade.easy");
     }
 }
 

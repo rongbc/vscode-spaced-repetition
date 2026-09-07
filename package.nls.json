@@ -1,0 +1,9 @@
+{
+    "srs.command.reviewDue": "Review due flashcards (all due/new)",
+    "srs.command.reviewAll": "Cram flashcards (ignore schedule)",
+    "srs.command.openQueue": "Open due note review queue",
+    "srs.command.reviewNote": "Review current note and rate it",
+    "srs.command.reviewNoteFromTree": "Open and review note",
+    "srs.view.dueNotes": "Due notes (#review)",
+    "srs.view.container": "Spaced Repetition"
+}

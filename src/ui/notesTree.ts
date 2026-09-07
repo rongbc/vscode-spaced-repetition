@@ -3,6 +3,7 @@
 import * as vscode from "vscode";
 import { NoteReviewItem } from "../core/model";
 import { todayStr } from "../core/dates";
+import { t } from "../i18n";
 
 type GroupId = "overdue" | "today" | "future" | "fresh";
 
@@ -27,7 +28,7 @@ class NoteNode extends vscode.TreeItem {
             this.tooltip = extra.relPath;
             this.command = {
                 command: "srs.reviewNoteFromTree",
-                title: "打开并复习笔记",
+                title: t("cmd.reviewNoteFromTree"),
                 arguments: [extra.relPath],
             };
         }
@@ -52,10 +53,10 @@ export class NotesTreeProvider implements vscode.TreeDataProvider<NoteNode> {
         if (!element) {
             const today = todayStr();
             const groups: { id: GroupId; label: string; list: NoteReviewItem[] }[] = [
-                { id: "overdue", label: "过期", list: [] },
-                { id: "today", label: "今日", list: [] },
-                { id: "future", label: "未来", list: [] },
-                { id: "fresh", label: "新笔记(未复习)", list: [] },
+                { id: "overdue", label: t("tree.overdue"), list: [] },
+                { id: "today", label: t("tree.today"), list: [] },
+                { id: "future", label: t("tree.future"), list: [] },
+                { id: "fresh", label: t("tree.fresh"), list: [] },
             ];
             for (const it of this.items) {
                 let g: GroupId;
@@ -98,7 +99,7 @@ export class NotesTreeProvider implements vscode.TreeDataProvider<NoteNode> {
                 return new NoteNode(name, vscode.TreeItemCollapsibleState.None, {
                     relPath: it.relPath,
                     due: it.due,
-                    desc: it.due ? `${it.due} · ${folder}` : folder || "未安排",
+                    desc: it.due ? `${it.due} · ${folder}` : folder || t("tree.notScheduled"),
                 });
             });
         }

@@ -7,6 +7,7 @@ import { newCardSchedule, reviewCardSchedule, ScheduleState } from "../core/sm2"
 import { humanizeInterval } from "../core/dates";
 import { renderFullMd, readHljsThemeCss, MdThemeKind } from "./markdown";
 import { writeCardGrade } from "../workspace";
+import { t, langTag } from "../i18n";
 
 function themeKind(): MdThemeKind {
     const k = vscode.window.activeColorTheme.kind;
@@ -41,7 +42,7 @@ export interface GradeCounts {
 }
 
 export function uriOfRel(root: vscode.WorkspaceFolder | undefined, relPath: string): vscode.Uri {
-    if (!root) throw new Error("未打开工作区");
+    if (!root) throw new Error(t("msg.noWorkspace"));
     return vscode.Uri.joinPath(root.uri, ...relPath.split("/"));
 }
 
@@ -76,7 +77,7 @@ export class ReviewController {
 
     start(items: ReviewItem[], title: string): void {
         if (items.length === 0) {
-            vscode.window.showInformationMessage("没有可复习的闪卡 🎉");
+            vscode.window.showInformationMessage(t("msg.noCards"));
             return;
         }
         this.items = items;
@@ -162,7 +163,7 @@ export class ReviewController {
             const doc = await vscode.workspace.openTextDocument(uri);
             await vscode.window.showTextDocument(doc);
         } catch {
-            vscode.window.showWarningMessage(`无法打开链接:${href}`);
+            vscode.window.showWarningMessage(t("msg.openLinkFailed", { href }));
         }
     }
 
@@ -174,7 +175,7 @@ export class ReviewController {
             const doc = await vscode.workspace.openTextDocument(uri);
             await vscode.window.showTextDocument(doc, vscode.ViewColumn.One);
         } catch (e) {
-            vscode.window.showWarningMessage(`无法打开笔记:${String(e)}`);
+            vscode.window.showWarningMessage(t("msg.openNoteFailed", { msg: String(e) }));
         }
     }
 
@@ -203,10 +204,8 @@ export class ReviewController {
             ok = false;
         }
         if (!ok) {
-            this.post({ type: "writeError" });
-            vscode.window.showWarningMessage(
-                `调度写回失败(文件可能正被编辑或内容已变):${item.relPath} — 本次评级未记录。`,
-            );
+            this.post({ type: "writeError", text: t("ui.writeError") });
+            vscode.window.showWarningMessage(t("msg.writeCardFailed", { relPath: item.relPath }));
             return;
         }
 
@@ -223,7 +222,20 @@ export class ReviewController {
         if (!this.panel) return;
         const item = this.items[this.idx];
         if (!item) {
-            this.post({ type: "done", counts: this.counts, total: this.items.length });
+            this.post({
+                type: "done",
+                counts: this.counts,
+                total: this.items.length,
+                doneTitle: t("ui.doneTitle"),
+                summary: t("ui.doneSummary", {
+                    total: this.items.length,
+                    again: this.counts.again,
+                    hard: this.counts.hard,
+                    good: this.counts.good,
+                    easy: this.counts.easy,
+                }),
+                close: t("ui.close"),
+            });
             return;
         }
         const curSeg = item.segs[item.sideIdx];
@@ -249,6 +261,12 @@ export class ReviewController {
                           return null;
                       }
                   };
+        const dur = humanizeInterval(Math.max(0, Math.round(cur ? cur.interval : 0)));
+        const metaText = item.isNew
+            ? t("meta.new")
+            : cur
+                ? t("meta.last", { interval: dur, ease: cur.ease, due: cur.due })
+                : "";
         this.post({
             type: "card",
             idx: this.idx,
@@ -268,6 +286,8 @@ export class ReviewController {
                   }
                 : null,
             ivls,
+            metaText,
+            openLabel: t("meta.open", { relPath: item.relPath }),
         });
     }
 
@@ -280,12 +300,12 @@ function buildShellHtml(hljsCss: string): string {
     const nonce = Math.random().toString(36).slice(2);
     const csp = `default-src 'none'; style-src 'unsafe-inline'; script-src 'nonce-${nonce}'; img-src https: data: vscode-webview-resource:;`;
     return `<!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="${langTag()}">
 <head>
 <meta charset="UTF-8"/>
 <meta http-equiv="Content-Security-Policy" content="${csp}"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>闪卡复习</title>
+<title>${t("app.title")}</title>
 <style id="themeCss">${hljsCss}</style>
 <style>
 body { font-family: var(--vscode-font-family); color: var(--vscode-foreground); padding: 14px 18px; }
@@ -340,16 +360,16 @@ a { color: var(--vscode-textLink-foreground); cursor:pointer; text-decoration:no
   <div class="front md" id="front"></div>
   <div class="back md" id="back"></div>
   <div class="btns" id="revealRow">
-    <button class="primary" id="reveal">显示答案 (空格)</button>
+    <button class="primary" id="reveal">${t("ui.reveal")}</button>
   </div>
   <div class="btns grades" id="grades" style="display:none">
-    <button id="again-btn-el"><span id="lbl-again">重来</span><span class="ivl" id="ivl-again"></span></button>
-    <button id="hard-btn-el"><span id="lbl-hard">困难</span><span class="ivl" id="ivl-hard"></span></button>
-    <button id="good-btn-el"><span id="lbl-good">良好</span><span class="ivl" id="ivl-good"></span></button>
-    <button id="easy-btn-el"><span id="lbl-easy">简单</span><span class="ivl" id="ivl-easy"></span></button>
+    <button id="again-btn-el"><span id="lbl-again">${t("grade.again")}</span><span class="ivl" id="ivl-again"></span></button>
+    <button id="hard-btn-el"><span id="lbl-hard">${t("grade.hard")}</span><span class="ivl" id="ivl-hard"></span></button>
+    <button id="good-btn-el"><span id="lbl-good">${t("grade.good")}</span><span class="ivl" id="ivl-good"></span></button>
+    <button id="easy-btn-el"><span id="lbl-easy">${t("grade.easy")}</span><span class="ivl" id="ivl-easy"></span></button>
   </div>
   <div class="meta">
-    <a id="openNote">打开笔记</a> · <a id="closeBtn">结束复习</a>
+    <a id="openNote">${t("ui.openNote")}</a> · <a id="closeBtn">${t("ui.endReview")}</a>
     <div id="meta"></div>
   </div>
 </div>
@@ -381,18 +401,14 @@ a { color: var(--vscode-textLink-foreground); cursor:pointer; text-decoration:no
     $('ivl-hard').textContent = d.ivls[1];
     $('ivl-good').textContent = d.ivls[2];
     $('ivl-easy').textContent = d.ivls[3];
-    const parts = [];
-    if (d.isNew) parts.push('新卡');
-    else if (d.before) parts.push('上次间隔 ' + d.before.interval + ' · 难度 ' + d.before.ease + ' · 到期 ' + d.due);
-    $('meta').textContent = parts.join('  ');
-    $('openNote').textContent = '打开: ' + d.relPath;
+    $('meta').textContent = d.metaText;
+    $('openNote').textContent = d.openLabel;
   }
   function showDone(d){
     document.querySelector('.card').innerHTML =
-      '<div class="center"><h2>复习完成 🎉</h2>' +
-      '<p>共 ' + d.total + ' 张 · 重来 ' + d.counts.again + ' · 困难 ' + d.counts.hard +
-      ' · 良好 ' + d.counts.good + ' · 简单 ' + d.counts.easy + '</p>' +
-      '<p><button class="primary" id="close-done">关闭</button></p></div>';
+      '<div class="center"><h2>' + d.doneTitle + '</h2>' +
+      '<p>' + d.summary + '</p>' +
+      '<p><button class="primary" id="close-done">' + d.close + '</button></p></div>';
     $('close-done').onclick = ()=> vscode.postMessage({type:'close'});
   }
   window.addEventListener('message', (e)=>{
@@ -402,7 +418,7 @@ a { color: var(--vscode-textLink-foreground); cursor:pointer; text-decoration:no
     else if (m.type==='done') showDone(m);
     else if (m.type==='needReveal') showAnswer();
     else if (m.type==='revealed') showAnswer();
-    else if (m.type==='writeError') $('meta').textContent = '⚠ 写回失败,本次评级未记录';
+    else if (m.type==='writeError') $('meta').textContent = m.text;
     else if (m.type==='theme') { const el = $('themeCss'); if (el) el.textContent = m.css; }
   });
   // Markdown 内链接:拦截后交给扩展端(外链 openExternal / 本地文件打开)
