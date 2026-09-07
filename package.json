@@ -1,10 +1,18 @@
 {
     "name": "vscode-spaced-repetition",
-    "displayName": "Spaced Repetition 间隔重复复习",
-    "description": "在 VSCode 中复习 Markdown 笔记里的闪卡:解析语法与调度注释格式兼容 obsidian-spaced-repetition(:: / ::: / 多行 ? 与 ??、<!--SR:!...-->),SM-2 算法调度,支持 #review 整篇笔记复习。",
-    "version": "0.2.2",
+    "displayName": "Spaced Repetition",
+    "description": "Review flashcards from Markdown notes in VS Code: parsing and scheduling-comment syntax compatible with obsidian-spaced-repetition (:: / ::: / multiline ? and ??, <!--SR:!...-->), SM-2 scheduling, and whole-note #review.",
+    "version": "0.3.0",
     "publisher": "local",
     "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/rongbc/vscode-spaced-repetition"
+    },
+    "homepage": "https://github.com/rongbc/vscode-spaced-repetition",
+    "bugs": {
+        "url": "https://github.com/rongbc/vscode-spaced-repetition/issues"
+    },
     "engines": {
         "vscode": "^1.85.0"
     },
@@ -22,7 +30,7 @@
     "main": "./out/extension.js",
     "contributes": {
         "configuration": {
-            "title": "Spaced Repetition 间隔重复复习",
+            "title": "Spaced Repetition",
             "properties": {
                 "srs.language": {
                     "type": "string",
@@ -32,12 +40,12 @@
                         "zh-cn"
                     ],
                     "enumDescriptions": [
-                        "Auto: follow the VS Code UI language / 自动跟随 VS Code 界面语言",
+                        "Auto: follow the VS Code UI language",
                         "English",
-                        "简体中文"
+                        "Simplified Chinese"
                     ],
                     "default": "auto",
-                    "description": "Plugin display language. Follows the VS Code UI language when 'auto'. 插件显示语言;auto 时使用 VS Code 界面语言。"
+                    "description": "Plugin display language. Follows the VS Code UI language when 'auto'."
                 },
                 "srs.flashcardTags": {
                     "type": "array",
@@ -47,7 +55,7 @@
                     "default": [
                         "#flashcards"
                     ],
-                    "description": "标记闪卡牌组的标签(兼容 Obsidian-Spaced-Repetition)。"
+                    "description": "Tags that mark flashcard decks (compatible with Obsidian-Spaced-Repetition)."
                 },
                 "srs.noteReviewTags": {
                     "type": "array",
@@ -57,7 +65,7 @@
                     "default": [
                         "#review"
                     ],
-                    "description": "标记整篇笔记复习的标签。"
+                    "description": "Tags that mark whole-note review notes."
                 },
                 "srs.deckSource": {
                     "type": "string",
@@ -67,12 +75,12 @@
                         "tagAndFolder"
                     ],
                     "enumDescriptions": [
-                        "与 OSR 默认一致:仅解析带闪卡标签(#flashcards[…])的笔记,牌组 = 标签路径",
-                        "全部笔记参与,牌组 = 文件夹(近似 OSR 的 convertFoldersToDecks)",
-                        "仅解析带标签的笔记;标签子路径优先,否则用文件夹"
+                        "Same as OSR default: only notes with a flashcard tag (#flashcards[…]) are parsed; deck = tag path",
+                        "All notes participate; deck = folder (approximates OSR convertFoldersToDecks)",
+                        "Only tagged notes are parsed; tag sub-path wins, otherwise the folder"
                     ],
                     "default": "tag",
-                    "description": "牌组来源。"
+                    "description": "Deck source."
                 },
                 "srs.ignoreGlobs": {
                     "type": "array",
@@ -88,27 +96,27 @@
                         "**/node_modules/**",
                         "**/.github/**"
                     ],
-                    "description": "扫描笔记时忽略的 glob(相对工作区根)。"
+                    "description": "Globs to ignore when scanning notes (relative to the workspace root)."
                 },
                 "srs.baseEase": {
                     "type": "number",
                     "default": 250,
-                    "description": "SM-2 初始难度(base ease),与 OSR 默认一致。"
+                    "description": "SM-2 initial difficulty (base ease); same as OSR default."
                 },
                 "srs.easyBonus": {
                     "type": "number",
                     "default": 1.3,
-                    "description": "Easy 评级间隔加成,与 OSR 默认一致。"
+                    "description": "Easy grade interval bonus; same as OSR default."
                 },
                 "srs.lapsesIntervalChange": {
                     "type": "number",
                     "default": 0.5,
-                    "description": "Hard 评级间隔系数,与 OSR 默认一致。"
+                    "description": "Hard grade interval factor; same as OSR default."
                 },
                 "srs.maximumInterval": {
                     "type": "number",
                     "default": 36525,
-                    "description": "间隔上限(天)。"
+                    "description": "Maximum interval (days)."
                 }
             }
         },
