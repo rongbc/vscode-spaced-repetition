@@ -2,7 +2,7 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "运行插件(间隔重复复习)",
+            "name": "Run extension (Spaced Repetition)",
             "type": "extensionHost",
             "request": "launch",
             "args": [
@@ -11,7 +11,7 @@
             "outFiles": [
                 "${workspaceFolder}/out/**/*.js"
             ],
-            "preLaunchTask": "编译插件",
+            "preLaunchTask": "Compile extension",
             "skipFiles": ["<node_internals>/**"]
         }
     ]
