@@ -5,6 +5,7 @@
     "version": "0.3.0",
     "publisher": "local",
     "license": "MIT",
+    "icon": "media/spaced-repetition-icon.png",
     "repository": {
         "type": "git",
         "url": "https://github.com/rongbc/vscode-spaced-repetition"
@@ -144,7 +145,7 @@
                 {
                     "id": "srs",
                     "title": "%srs.view.container%",
-                    "icon": "media/srs-icon.svg"
+                    "icon": "media/spaced-repetition-icon-monochrome.svg"
                 }
             ]
         },
