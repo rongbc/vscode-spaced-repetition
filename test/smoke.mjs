@@ -169,6 +169,19 @@ check("多行卡 back 含答案,渲染非空(修复:答案应显示)", () => {
     const html = mdLite.renderMd(b.sides[0].back);
     assert.ok(html.includes("softirq"), "多行卡答案 HTML 不应为空");
 });
+check("代码围栏在 <pre> 内逐行保留换行(修复:代码段不再粘成一行)", () => {
+    const b = B.find((x) => x.sides[0].front.includes("上半部/下半部"));
+    assert.ok(b && b.sides[0].back.includes("```c"));
+    const html = mdLite.renderMd(b.sides[0].back);
+    const pre = html.match(/<pre>[\s\S]*?<\/pre>/);
+    assert.ok(pre, "答案应渲染出 <pre> 代码块");
+    const code = pre[0].replace(/<\/?pre>/g, "");
+    const jsLines = b.sides[0].back.split("\n").filter((l) => l.includes("createRequire") || l.includes("join(dirname"));
+    for (const l of jsLines) {
+        assert.ok(code.includes(l.replace(/"/g, "&quot;")), `围栏内缺少整行: ${l.slice(0, 40)}`);
+    }
+    assert.ok(code.includes("\n"), "<pre> 内代码行之间应保留 \\n");
+});
 check("行首标签卡牌组=科学,覆盖笔记标签", () => {
     const b = B.find((x) => x.sides[0].front.includes("高亮文本"));
     assert.ok(b);

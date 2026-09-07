@@ -13,6 +13,17 @@
 ?
 上半部：中断处理函数，要求快，禁止睡眠，处理紧急工作。
 下半部：softirq / tasklet / workqueue，处理可延迟工作，允许睡眠。
+```c
+const require = createRequire(import.meta.url);
+const root = join(dirname(fileURLToPath(import.meta.url)), "..");
+const dates = require(join(root, "out/core/dates.js"));
+const sm2 = require(join(root, "out/core/sm2.js"));
+const model = require(join(root, "out/core/model.js"));
+const flashcards = require(join(root, "out/parser/flashcards.js"));
+const noteReview = require(join(root, "out/parser/note-review.js"));
+const writer = require(join(root, "out/store/note-writer.js"));
+const mdLite = require(join(root, "out/ui/md-lite.js"));
+```
 
 ## 单行卡
 

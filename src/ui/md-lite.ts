@@ -37,7 +37,8 @@ export function renderMd(text: string): string {
             continue;
         }
         if (fenceLang !== "") {
-            out.push(esc(line));
+            // 每个围栏行后必须带 \n:<pre> 内换行只能来自文本节点本身的换行符
+            out.push(esc(line) + "\n");
             continue;
         }
         if (/^\s*$/.test(line)) {
