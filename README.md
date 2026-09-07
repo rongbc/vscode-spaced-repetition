@@ -1,105 +1,107 @@
-# vscode-spaced-repetition(间隔重复复习)
+# vscode-spaced-repetition (Spaced Repetition)
 
-在 **VSCode** 中复习 Markdown 笔记里 obsidian-spaced-repetition 闪卡
+[简体中文](README.zh.md) | English
 
-解析语法、调度注释格式与算法都与[obsidian-spaced-repetition](https://github.com/st3v3nmw/obsidian-spaced-repetition)(下称 OSR)一致:用 **SM-2(OSR 变体)** 调度到期复习,并把 `<!--SR:!...-->` 调度注释写回笔记。因此同一份笔记可在 Obsidian 与本插件之间切换、跨设备随 git 同步复习进度。
+Review obsidian-spaced-repetition flashcards from Markdown notes right in VS Code.
 
-## 与 OSR 的一致性
+Parsing syntax, scheduling-comment format and algorithm all match [obsidian-spaced-repetition](https://github.com/st3v3nmw/obsidian-spaced-repetition) (OSR): it schedules due reviews with **SM-2 (OSR variant)** and writes the `<!--SR:!...-->` scheduling comments back into the note. The same note can therefore be switched between Obsidian and this extension, and review progress syncs across devices via git.
 
-- **卡片识别直接 vendor 上游代码**:`src/lib/parser.ts` / `src/lib/question-type.ts` 原样拷自 OSR v1.15.4(仅替换 import,正文未改);另有冒烟测试与上游 `parse()` 逐组对拍;
-- 注释格式 `<!--SR:!日期,间隔,难度-->` 相同,写回卡片**后一行**(对应 OSR 默认 `cardCommentOnSameLine: false`);
-- SM-2 公式、默认参数与评级映射一致(baseEase 250 / easyBonus 1.3 / lapsesIntervalChange 0.5 / Again→难度−20、间隔归零等);
-- 整篇笔记复习:`#review` + frontmatter `sr-due / sr-interval / sr-ease`,字段与 OSR 相同。
+## Consistency with OSR
 
-## 快速开始(开发调试)
+- **Card detection directly vendors the upstream code**: `src/lib/parser.ts` / `src/lib/question-type.ts` are copied verbatim from OSR v1.15.4 (only the import lines are replaced, body untouched); a smoke test compares block-by-block against the upstream `parse()`.
+- The same comment format `<!--SR:!date,interval,ease-->` is written on the line **after** the card (matching OSR's default `cardCommentOnSameLine: false`).
+- SM-2 formulas, defaults and the grade mapping are identical (baseEase 250 / easyBonus 1.3 / lapsesIntervalChange 0.5 / Again → ease −20, interval reset, etc.).
+- Whole-note review: `#review` + frontmatter `sr-due / sr-interval / sr-ease`, with the same fields as OSR.
 
-1. 克隆本仓库后 `npm install`,用 VSCode 打开本目录;
-2. 按 **F5**:编译并启动“扩展开发宿主”;
-3. 在宿主窗口里 **File > Open Folder…** 打开你的笔记库(如含 `.code-workspace` 用打开工作区),侧边活动栏出现 🎴「间隔复习」入口,状态栏显示到期计数。
+## Quick start (development)
 
-正式使用可打包 VSIX 安装:`npm run package`(见 package.json scripts,或用 `@vscode/vsce`),`code --install-extension vscode-spaced-repetition-*.vsix`。
+1. Clone the repo, run `npm install`, and open the directory in VS Code.
+2. Press **F5** to compile and launch the Extension Development Host.
+3. In the host window, open your note vault with **File > Open Folder…** (or the workspace if you use a `.code-workspace`); the 🎴 "Spaced Repetition" activity-bar entry appears and the status bar shows due counts.
 
-命令(Ctrl+Shift+P):
+To use it for real, package a VSIX: `npm run package` (see package.json scripts, or use `@vscode/vsce`), then `code --install-extension vscode-spaced-repetition-*.vsix`.
 
-| 命令 | 说明 |
+Commands (Ctrl+Shift+P):
+
+| Command | Description |
 | --- | --- |
-| `复习到期闪卡 (全部到期/新卡)` | 选牌组(或全部),复习到期 + 新卡 |
-| `突击复习闪卡 (忽略调度)` | 忽略算法调度,任意复习 |
-| `打开到期笔记复习队列` | 聚焦侧边栏「到期笔记(#review)」 |
-| `复习当前笔记并评级` | 对打开且带 `#review` 的笔记评级 |
+| `Review due flashcards (all due/new)` | Pick a deck (or all), review due + new cards |
+| `Cram flashcards (ignore schedule)` | Ignore the algorithm schedule and review anything |
+| `Open due note review queue` | Focus the sidebar "Due notes (#review)" |
+| `Review current note and rate it` | Rate the open note that carries `#review` |
 
-命令、活动栏容器与视图名随 **VS Code 界面语言** 本地化(英语 `en` / 简体中文 `zh-cn`);上表为中文习惯名。
+Commands, the activity-bar container and the view name are localized to the **VS Code UI language** (English `en` / Simplified Chinese `zh-cn`); the table above uses the English names.
 
-复习面板:空格/「显示答案」翻面,`1 重来 / 2 困难 / 3 良好 / 4 简单`,按钮上显示下次间隔。面板正文用 **markdown-it**(与 VSCode 内置 Markdown 预览同引擎)+ **highlight.js** 渲染:表格、引用、标题、列表、分割线、删除线、行内代码、链接与图片均支持,三反引号围栏的代码块带语法高亮,并按深浅主题自动切换配色;面板内运行期文案(按钮/消息/元信息)随显示语言本地化。
+Review panel: Space / "Show answer" flips the card, `1 Again / 2 Hard / 3 Good / 4 Easy`, and each button shows the next interval. The card body is rendered with **markdown-it** (the same engine as VS Code's built-in Markdown preview) plus **highlight.js**: tables, blockquotes, headings, lists, horizontal rules, strikethrough, inline code, links and images are supported; fenced code blocks get syntax highlighting and follow the active light/dark theme; runtime text (buttons, messages, card meta) is localized with the display language.
 
-## 闪卡语法(与 OSR 一致)
+## Flashcard syntax (same as OSR)
 
-**空行是卡片边界**(空行会结束当前卡片):
+**A blank line is a card boundary** (it ends the current card):
 
 ```
-# 单行 / 反转
-fork() 在子进程中的返回值是什么？::0
-软中断下半部用什么实现:::tasklet / workqueue
+# Single-line / reversed
+What does fork() return in the child process?::0
+Implement the softirq bottom half with:::tasklet / workqueue
 
-# 多行(题目可多行,? 单独成行,前后内容连续、不留空行)
-Linux 中断处理的上半部/下半部各有什么特点？
+# Multi-line (multi-line question, ? on its own line, contiguous content, no blank lines)
+What are the characteristics of the top half and bottom half of interrupt handling?
 ?
-上半部：中断处理函数，要求快，禁止睡眠，处理紧急工作。
-下半部：softirq / tasklet / workqueue，处理可延迟工作，允许睡眠。
+Top half: the interrupt handler — fast, must not sleep, handles urgent work.
+Bottom half: softirq / tasklet / workqueue — deferred, may sleep.
 
-# 多行反转用 ??
+# Reversed multi-line uses ??
 ```
 
-注意(与 OSR 行为一致):`?` 与题目/答案之间若有空行,卡片会被空行截断(空答案退化卡会被跳过);分隔符只有半角 `::` `:::` `?` `??`;普通文字行里的 `::` 也会被识别为卡(OSR 仅排除代码围栏与行内代码 `` `a::b` ``);`==高亮==` 等挖空(cloze)暂未启用。评级后注释写回卡片后一行;反转卡共享一个注释、每张一段,未复习兄弟卡用占位段 `!2000-01-01,1,250`;Obsidian 写过的旧注释(行尾或后一行)均可识别续用。
+Note (matching OSR): a blank line between `?` and the question/answer truncates the card (degenerate cards with an empty answer are skipped); only half-width `::` `:::` `?` `??` are separators; `::` inside normal text is also recognized as a card (OSR only excludes code fences and inline code `` `a::b` ``); cloze (`==highlight==`) is not yet enabled. After grading, the comment is written on the line after the card; reversed cards share one comment with a segment per side, and unreviewed sibling cards use the placeholder segment `!2000-01-01,1,250`; old comments written by Obsidian (end-of-line or on the next line) are recognized and reused.
 
-与 OSR 的差异(均在适配层,上游正文未动):① 解析前在适配层把“非 <!--SR: 的 HTML 注释”整段空行化(上游对跨行 HTML 注释的跳段误用首行判断,会吞掉后续内容,此处按意图修正);② 空答案退化卡不进入队列;③ cloze 未启用(以空 pattern 传入上游);④ 注释中间隔序列化取整为整数天、无 loadBalance 模糊化。
+Differences from OSR (all in the adaptation layer; the upstream body is untouched): ① before parsing, non-`<!--SR:` HTML comments are blanked out in the adaptation layer (the upstream mishandles multi-line HTML comments by deciding on the first line, swallowing subsequent content; fixed here deliberately); ② degenerate empty-answer cards are not queued; ③ cloze is disabled (passed to upstream as an empty pattern); ④ comment intervals are serialized to whole days, with no load-balance fuzzing.
 
-## 牌组来源(设置 `srs.deckSource`)
+## Deck source (setting `srs.deckSource`)
 
-| 值 | 行为 |
+| Value | Behavior |
 | --- | --- |
-| `tag`(默认,同 OSR) | 仅解析带 `#flashcards[…/子牌组]` 的笔记,牌组 = 标签路径 |
-| `folder` | 全部笔记参与,牌组 = 文件夹(≈ OSR convertFoldersToDecks) |
-| `tagAndFolder` | 仅解析带标签的笔记;标签子路径优先,否则文件夹 |
+| `tag` (default, same as OSR) | Only notes with `#flashcards[…/subdeck]` are parsed; deck = tag path |
+| `folder` | All notes participate; deck = folder (≈ OSR convertFoldersToDecks) |
+| `tagAndFolder` | Only tagged notes are parsed; tag sub-path wins, otherwise the folder |
 
-标签可写正文或 frontmatter `tags`;卡片行首也可写 `#flashcards/子牌组  Q::A` 单卡归类。
+Tags can be written in the body or in frontmatter `tags`; a card can also carry `#flashcards/subdeck  Q::A` on its own line to assign it to a deck.
 
-## 整篇笔记复习(#review)
+## Whole-note review (#review)
 
-笔记带 `#review`(正文或 frontmatter `tags: [review]`)进入队列:侧边栏按 过期/今日/未来/新笔记分组;打开后执行 `复习当前笔记并评级` 选 1~4,调度写入 frontmatter `sr-due/sr-interval/sr-ease`(其余字段保留)。
+Notes tagged `#review` (body or frontmatter `tags: [review]`) enter the queue: the sidebar groups them by Overdue / Today / Future / New. Open a note, run `Review current note and rate it` and pick 1~4 — the schedule is written into frontmatter `sr-due/sr-interval/sr-ease` (other fields are preserved).
 
-## 设置
+## Settings
 
-`srs.language`(默认 `auto`)· `srs.flashcardTags`(默认 `["#flashcards"]`)· `srs.noteReviewTags`(默认 `["#review"]`)· `srs.deckSource`(默认 `tag`)· `srs.ignoreGlobs`(默认排除 .git/.obsidian/.vscode/.agents/.trash/node_modules/.github)· `srs.baseEase / easyBonus / lapsesIntervalChange / maximumInterval`
+`srs.language` (default `auto`) · `srs.flashcardTags` (default `["#flashcards"]`) · `srs.noteReviewTags` (default `["#review"]`) · `srs.deckSource` (default `tag`) · `srs.ignoreGlobs` (default excludes .git/.obsidian/.vscode/.agents/.trash/node_modules/.github) · `srs.baseEase / easyBonus / lapsesIntervalChange / maximumInterval`
 
-### 界面语言(`srs.language`)
+### UI language (`srs.language`)
 
-`auto`(默认)跟随 VS Code 界面语言(以 `zh` 开头 → 简体中文,否则英语),也可固定为 `en` 或 `zh-cn`。命令标题、活动栏容器与视图名由 VS Code 界面语言驱动(`package.nls.*`);面板内运行期文案受 `srs.language` 控制。
+`auto` (default) follows the VS Code UI language (starts with `zh` → Simplified Chinese, otherwise English), or you can force `en` or `zh-cn`. Command titles, the activity-bar container and the view name are driven by the VS Code UI language (`package.nls.*`); in-panel runtime text is controlled by `srs.language`.
 
-## 已知限制
+## Known limitations
 
-- 不实现 OSR 挖空卡(cloze);单工作区模式;无统计图表、无提醒;
-- 复习期间同一篇笔记有未保存编辑时,评级写回可能因文本不一致失败(保存后重试);
-- 写回会保存整个文档(未保存的编辑会一并保存,不会丢内容)。
+- No OSR cloze cards; single-workspace mode; no statistics charts or reminders;
+- If a note has unsaved edits while reviewing, the schedule write-back may fail due to text mismatch (save and retry);
+- Write-back saves the whole document (unsaved edits are saved too; no content is lost).
 
-## 目录
+## Layout
 
 ```
-.vscode/launch.json / tasks.json / settings.json   # F5 调试配置
-src/lib/        # vendor 自 OSR v1.15.4:parser.ts / question-type.ts / compat(正文未改)
-src/core/       # 纯逻辑:日期、SM-2、模型(可单测)
-src/parser/     # md 工具、闪卡适配层(调 lib 上游解析)、#review frontmatter
-src/store/      # 注释写回(文本级)
-src/i18n.ts     # en / zh-cn 文案字典与 t(key, vars) 格式化(显示语言 srs.language)
-src/ui/         # Webview 复习面板(markdown-it + highlight.js)、到期笔记树、状态栏
+.vscode/launch.json / tasks.json / settings.json    # F5 debug config
+src/lib/        # vendored from OSR v1.15.4: parser.ts / question-type.ts / compat (body untouched)
+src/core/       # pure logic: dates, SM-2, model (unit-testable)
+src/parser/     # md utils, flashcard adapter layer (calls the vendored parser), #review frontmatter
+src/store/      # comment write-back (text-level)
+src/i18n.ts     # en / zh-cn message dictionary with t(key, vars) formatter (display language srs.language)
+src/ui/         # Webview review panel (markdown-it + highlight.js), due-note tree, status bar
 src/workspace.ts / config.ts / extension.ts
-package.nls.json / package.nls.zh-cn.json         # 贡献点标题/视图名本地化
-test/           # 英文 fixture + 冒烟测试(含与上游 parse() 对拍)
-    npm run compile   # tsc 编译
-    npm run smoke     # 解析对拍 / 调度 / 写回回环自测
-    npm run package   # @vscode/vsce 打包 VSIX
+package.nls.json / package.nls.zh-cn.json          # contribution-point title/view localization
+test/           # English fixture + smoke tests (with upstream parse() parity)
+    npm run compile   # tsc compilation
+    npm run smoke     # parse parity / scheduling / write-back round-trip self-tests
+    npm run package   # package a VSIX via @vscode/vsce
 ```
 
-### 上游同步(维护 vendor 时)
+### Upstream sync (when maintaining the vendored code)
 
-`src/lib/` 来自 OSR v1.15.4。升级上游:把对应文件拷入并仅替换 import 行(parser/question-type 的 CardType、SR_METADATA_CALLOUT、SRSettings 来自 `./compat`,helper 来自 `./strings`),再跑 `npm run smoke` 的“与上游 parser 一致性”段确认无回归。
+`src/lib/` comes from OSR v1.15.4. To upgrade: copy the corresponding files in and replace only the import lines (parser/question-type's CardType, SR_METADATA_CALLOUT and SRSettings come from `./compat`, helpers from `./strings`), then run `npm run smoke` and check the "upstream parser consistency" section for regressions.
