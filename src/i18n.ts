@@ -33,7 +33,7 @@ const DICT = {
         en: "Last {interval} · ease {ease} · due {due}",
         "zh-cn": "上次间隔 {interval} · 难度 {ease} · 到期 {due}",
     },
-    "meta.open": { en: "Open: {relPath}", "zh-cn": "打开: {relPath}" },
+    "meta.open": { en: "Open: {relPath}:{line}", "zh-cn": "打开: {relPath}:{line}" },
     // ---- 命令 / 选择器 ----
     "cmd.reviewDue": { en: "Review due flashcards", "zh-cn": "复习到期闪卡" },
     "cmd.reviewAll": { en: "Cram flashcards", "zh-cn": "突击复习闪卡" },

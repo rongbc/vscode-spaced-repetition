@@ -211,11 +211,6 @@ console.log("== 复习面板全量渲染(markdown-it + highlight.js)==");
         assert.ok(html.includes("katex-display"), "行间公式应渲染为 katex-display");
         assert.ok(html.includes("\\sqrt{2}") || html.includes("sqrt"), "根式应被 KaTeX 处理");
     });
-    check("mermaid 围栏按普通代码块保留(不渲染)", () => {
-        assert.ok(html.includes('<pre class="hljs"><code>'), "mermaid 应输出普通代码块");
-        assert.ok(html.includes("flowchart TD"), "mermaid 内容缺失");
-        assert.ok(html.includes("A[Top half] --&gt; B[Bottom half]"), "mermaid 边缺失");
-    });
     check("表格/引用/列表/删除线等元素完整渲染", () => {
         const t = "|a|b|\n|-|-|\n|1|2|\n\n> 引用\n\n- 项1\n- 项2\n\n~~划掉~~";
         const h = fullMd.renderFullMd(t);

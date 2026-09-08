@@ -37,6 +37,7 @@ function dueBlocksToReviewItems(
             back: side.back,
             isNew: d.isNew,
             due: d.sched?.due ?? null,
+            line: d.block.line + 1,
             segs: [...d.block.segs],
         };
     });

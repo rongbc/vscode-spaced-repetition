@@ -36,6 +36,7 @@ export interface ReviewItem {
     back: string;
     isNew: boolean;
     due: string | null;
+    line: number; // 卡片起始行(1 基,用于「路径:行号」与跳转)
     segs: (SchedSeg | null)[];
 }
 
@@ -179,7 +180,12 @@ export class ReviewController {
         try {
             const uri = uriOfRel(this.root, item.relPath);
             const doc = await vscode.workspace.openTextDocument(uri);
-            await vscode.window.showTextDocument(doc, vscode.ViewColumn.One);
+            const editor = await vscode.window.showTextDocument(doc, vscode.ViewColumn.One);
+            if (item.line > 0) {
+                const pos = new vscode.Position(item.line - 1, 0);
+                editor.selection = new vscode.Selection(pos, pos);
+                editor.revealRange(new vscode.Range(pos, pos), vscode.TextEditorRevealType.InCenter);
+            }
         } catch (e) {
             vscode.window.showWarningMessage(t("msg.openNoteFailed", { msg: String(e) }));
         }
@@ -293,7 +299,7 @@ export class ReviewController {
                 : null,
             ivls,
             metaText,
-            openLabel: t("meta.open", { relPath: item.relPath }),
+            openLabel: t("meta.open", { relPath: item.relPath, line: item.line }),
         });
     }
 
