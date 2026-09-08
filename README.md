@@ -35,7 +35,9 @@ Fight the forgetting curve by reviewing [obsidian-spaced-repetition](https://git
 
 ### OSR compatibility 🔄
 
-- Card detection directly vendors the upstream code (`src/lib/parser.ts` / `src/lib/question-type.ts` copied verbatim from OSR v1.15.4, body untouched), with a smoke test that compares block-by-block against the upstream `parse()`.
+- This extension is designed to remain compatible with [obsidian-spaced-repetition (OSR)](https://github.com/st3v3nmw/obsidian-spaced-repetition).
+- The card parser, question-type implementation and their support helpers are vendored from obsidian-spaced-repetition **v1.15.4**: `src/lib/parser.ts`, `src/lib/question-type.ts`, `src/lib/compat.ts`, `src/lib/strings.ts`. These files are derived from the upstream implementation (body untouched apart from the import/adaptation lines) and remain under the upstream MIT License, Copyright (c) 2021 - 2024 Stephen Mwangi; the rest of this repository is developed independently for the VS Code extension. See [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) for the full third-party license notice.
+- A smoke test compares the vendored parser block-by-block against the upstream `parse()`.
 - The same comment format `<!--SR:!date,interval,ease-->` is written on the line **after** the card (OSR's default `cardCommentOnSameLine: false`), and old comments written by Obsidian are recognized and reused.
 
 ### Localization 🌐
@@ -149,7 +151,7 @@ All differences live in the adaptation layer; the upstream body is untouched. Be
 
 ```
 .vscode/launch.json / tasks.json / settings.json    # F5 debug config
-src/lib/      # vendored from OSR v1.15.4: parser.ts / question-type.ts / compat (body untouched)
+src/lib/      # vendored from OSR v1.15.4: parser.ts / question-type.ts / compat.ts / strings.ts (see THIRD-PARTY-NOTICES.md)
 src/core/     # pure logic: dates, SM-2, model (unit-testable)
 src/parser/   # md utils, flashcard adapter layer (calls the vendored parser), #review frontmatter
 src/store/    # comment write-back (text-level)
@@ -168,4 +170,5 @@ Scripts: `npm run compile` (tsc) · `npm run smoke` (parse parity / scheduling /
 
 ## License
 
-[MIT](LICENSE)
+- The code developed for this extension is licensed under the [MIT License](LICENSE), Copyright (c) 2026 rong baichuan.
+- The vendored third-party code (`src/lib/parser.ts`, `src/lib/question-type.ts`, `src/lib/compat.ts`, `src/lib/strings.ts`) is licensed separately under the upstream MIT License — see [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).

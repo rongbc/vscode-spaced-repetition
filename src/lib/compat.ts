@@ -1,6 +1,17 @@
-// vendor 自 obsidian-spaced-repetition(v1.15.4, https://github.com/st3v3nmw/obsidian-spaced-repetition)
-// 的最小兼容类型/常量:让 lib/parser.ts、lib/question-type.ts 可原样编译运行。
-// 这些定义与原仓库保持一致,勿按个人喜好改动。
+/*
+ * This file is derived from obsidian-spaced-repetition v1.15.4.
+ *
+ * Copyright (c) 2021 - 2024 Stephen Mwangi
+ *
+ * The original source is licensed under the MIT License.
+ * See THIRD-PARTY-NOTICES.md for the full license text.
+ *
+ * Upstream:
+ * https://github.com/st3v3nmw/obsidian-spaced-repetition/tree/1.15.4
+ * (commit 0f81fc147bc80781f110fe0f7a9a05145d74c581)
+ */
+// 本文件是上游类型/常量的最小兼容子集:仅为让 parser.ts / question-type.ts 原样编译运行。
+// 各定义与原仓库保持一致,勿按个人喜好改动。
 
 /** 与原仓库 src/data/data-structures/card/questions/question.ts 的 CardType 完全一致 */
 export enum CardType {

@@ -4,6 +4,7 @@
     "description": "Review flashcards from Markdown notes in VS Code: parsing and scheduling-comment syntax compatible with obsidian-spaced-repetition (:: / ::: / multiline ? and ??, <!--SR:!...-->), SM-2 scheduling, and whole-note #review.",
     "version": "0.3.0",
     "publisher": "local",
+    "author": "rong baichuan",
     "license": "MIT",
     "icon": "media/spaced-repetition-icon.png",
     "repository": {

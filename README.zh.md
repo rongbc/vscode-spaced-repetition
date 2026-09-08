@@ -35,7 +35,9 @@
 
 ### 与 OSR 的兼容性 🔄
 
-- 卡片识别直接 vendor 上游代码（`src/lib/parser.ts` / `src/lib/question-type.ts` 原样拷自 OSR v1.15.4，正文未改），并有冒烟测试与上游 `parse()` 逐组对拍。
+- 本插件设计为与 [obsidian-spaced-repetition（OSR）](https://github.com/st3v3nmw/obsidian-spaced-repetition) 保持兼容。
+- 卡片解析、题型实现及其辅助代码 vendor 自 obsidian-spaced-repetition **v1.15.4**：`src/lib/parser.ts`、`src/lib/question-type.ts`、`src/lib/compat.ts`、`src/lib/strings.ts`。这些文件派生自上游实现（除 import/适配行外正文未改），仍受上游 MIT License 约束（Copyright (c) 2021 - 2024 Stephen Mwangi）；本仓库其余实现均为该 VS Code 扩展独立开发。完整第三方许可声明见 [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md)。
+- 冒烟测试与上游 `parse()` 逐组对拍，保证解析行为一致。
 - 注释格式 `<!--SR:!日期,间隔,难度-->` 相同，写回卡片**后一行**（对应 OSR 默认 `cardCommentOnSameLine: false`），Obsidian 写过的旧注释均可识别续用。
 
 ### 本地化 🌐
@@ -149,7 +151,7 @@ Linux 中断处理的上半部/下半部各有什么特点？
 
 ```
 .vscode/launch.json / tasks.json / settings.json   # F5 调试配置
-src/lib/        # vendor 自 OSR v1.15.4：parser.ts / question-type.ts / compat（正文未改）
+src/lib/        # vendor 自 OSR v1.15.4：parser.ts / question-type.ts / compat.ts / strings.ts（见 THIRD-PARTY-NOTICES.md）
 src/core/       # 纯逻辑：日期、SM-2、模型（可单测）
 src/parser/     # md 工具、闪卡适配层（调 lib 上游解析）、#review frontmatter
 src/store/      # 注释写回（文本级）
@@ -168,4 +170,5 @@ test/           # 英文 fixture + 冒烟测试（含与上游 parse() 对拍）
 
 ## 许可证
 
-[MIT](LICENSE)
+- 本扩展原创代码以 [MIT License](LICENSE) 许可，Copyright (c) 2026 rong baichuan。
+- Vendor 的第三方代码（`src/lib/parser.ts`、`src/lib/question-type.ts`、`src/lib/compat.ts`、`src/lib/strings.ts`）按上游 MIT License 另行许可——详见 [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md)。

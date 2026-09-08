@@ -1,6 +1,18 @@
-// @ts-nocheck — vendor 文件正文与 obsidian-spaced-repetition 保持一致,不做类型检查。
-// ⚠️ 本文件 vendor 自 obsidian-spaced-repetition v1.15.4 (src/parser.ts),除顶部 import 外正文未经改动。
-// 同步方式:从上游拷贝 src/parser.ts,仅把 import 行替换为以下两行。
+// @ts-nocheck
+
+/*
+ * This file is derived from obsidian-spaced-repetition v1.15.4.
+ *
+ * Copyright (c) 2021 - 2024 Stephen Mwangi
+ *
+ * The original source is licensed under the MIT License.
+ * See THIRD-PARTY-NOTICES.md for the full license text.
+ *
+ * Upstream:
+ * https://github.com/st3v3nmw/obsidian-spaced-repetition/tree/1.15.4
+ * (commit 0f81fc147bc80781f110fe0f7a9a05145d74c581)
+ */
+// 同步:升级上游时,从仓库拷贝 src/parser.ts 覆盖本文件,仅替换下方 import 行,正文保持与上游一致。
 import { ClozeCrafter } from "clozecraft";
 import { CardType, SR_METADATA_CALLOUT } from "./compat";
 

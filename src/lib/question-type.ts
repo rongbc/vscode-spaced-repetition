@@ -1,5 +1,17 @@
-// @ts-nocheck — vendor 文件正文与 obsidian-spaced-repetition 保持一致,不做类型检查。
-// ⚠️ vendor 自 obsidian-spaced-repetition v1.15.4 (src/data/data-structures/card/questions/question-type.ts),正文未改。
+// @ts-nocheck
+
+/*
+ * This file is derived from obsidian-spaced-repetition v1.15.4.
+ *
+ * Copyright (c) 2021 - 2024 Stephen Mwangi
+ *
+ * The original source is licensed under the MIT License.
+ * See THIRD-PARTY-NOTICES.md for the full license text.
+ *
+ * Upstream:
+ * https://github.com/st3v3nmw/obsidian-spaced-repetition/tree/1.15.4
+ * (commit 0f81fc147bc80781f110fe0f7a9a05145d74c581)
+ */
 import { ClozeCrafter } from "clozecraft";
 import { CardType, SRSettings } from "./compat";
 import { findLineIndexOfSearchStringIgnoringWs } from "./strings";
