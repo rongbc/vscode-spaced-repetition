@@ -2,26 +2,74 @@
 
 [简体中文](README.zh.md) | English
 
-Review obsidian-spaced-repetition flashcards from Markdown notes right in VS Code.
+<p align="center">
+  <img src="media/spaced-repetition-icon.png" alt="Spaced Repetition" width="128" />
+</p>
 
-Parsing syntax, scheduling-comment format and algorithm all match [obsidian-spaced-repetition](https://github.com/st3v3nmw/obsidian-spaced-repetition) (OSR): it schedules due reviews with **SM-2 (OSR variant)** and writes the `<!--SR:!...-->` scheduling comments back into the note. The same note can therefore be switched between Obsidian and this extension, and review progress syncs across devices via git.
+![VS Code](https://img.shields.io/badge/VS%20Code-1.85%2B-blue) ![License](https://img.shields.io/badge/license-MIT-blue) ![Algorithm](https://img.shields.io/badge/algorithm-SM--2%20(OSR%20variant)-orange) ![Compatible](https://img.shields.io/badge/compatible-obsidian--spaced--repetition-purple)
 
-## Consistency with OSR
+Fight the forgetting curve by reviewing [obsidian-spaced-repetition](https://github.com/st3v3nmw/obsidian-spaced-repetition) flashcards & notes right in VS Code, using the SM-2 (OSR variant) [spaced repetition](https://en.wikipedia.org/wiki/Spaced_repetition) algorithm.
 
-- **Card detection directly vendors the upstream code**: `src/lib/parser.ts` / `src/lib/question-type.ts` are copied verbatim from OSR v1.15.4 (only the import lines are replaced, body untouched); a smoke test compares block-by-block against the upstream `parse()`.
-- The same comment format `<!--SR:!date,interval,ease-->` is written on the line **after** the card (matching OSR's default `cardCommentOnSameLine: false`).
-- SM-2 formulas, defaults and the grade mapping are identical (baseEase 250 / easyBonus 1.3 / lapsesIntervalChange 0.5 / Again → ease −20, interval reset, etc.).
-- Whole-note review: `#review` + frontmatter `sr-due / sr-interval / sr-ease`, with the same fields as OSR.
+- Parsing syntax, the `<!--SR:!...-->` scheduling-comment format and the algorithm all match **obsidian-spaced-repetition** (OSR): it schedules due reviews with **SM-2 (OSR variant)** and writes the scheduling comment back into the note. The same note can be switched between Obsidian and this extension, and review progress syncs across devices via git.
+- Raise an [issue](https://github.com/rongbc/vscode-spaced-repetition/issues) if you have a feature request or a bug report.
+- The UI is localized to _English_ and _Simplified Chinese_; command titles, the activity-bar container and the view name follow the VS Code UI language.
 
-## Quick start (development)
+<br/>
 
-1. Clone the repo, run `npm install`, and open the directory in VS Code.
-2. Press **F5** to compile and launch the Extension Development Host.
-3. In the host window, open your note vault with **File > Open Folder…** (or the workspace if you use a `.code-workspace`); the 🎴 "Spaced Repetition" activity-bar entry appears and the status bar shows due counts.
+## Features⚡
 
-To use it for real, package a VSIX: `npm run package` (see package.json scripts, or use `@vscode/vsce`), then `code --install-extension vscode-spaced-repetition-*.vsix`.
+### Reviewing flashcards 🗃️
 
-Commands (Ctrl+Shift+P):
+- Deck source via Obsidian-style hierarchical `#flashcards` tags or folder structure (setting `srs.deckSource`)
+- Card styles (all compatible with OSR):
+  - Single-line (`Question::Answer`) and single-line reversed (`Question:::Answer`)
+  - Multi-line (a `?` on its own line) and multi-line reversed (`??`)
+  - Cloze (fill-in-the-blank): `==highlighted text==` as well as any custom pattern in `srs.clozePatterns` — one reviewable card per cloze deletion, with the rest of the note shown as context.
+- Rich card rendering with **markdown-it** + **highlight.js** + **KaTeX**: tables, blockquotes, headings, lists, horizontal rules, strikethrough, inline code, links, images, syntax-highlighted fenced code blocks, and LaTeX math.
+- Card context from headings, e.g. `Note title > Heading 1 > Subheading`.
+
+### Reviewing whole notes 📄
+
+- Mark a whole note for review with the `#review` tag; the schedule is stored in frontmatter `sr-due / sr-interval / sr-ease`.
+- A due-note queue grouped by _Overdue / Today / Future / New_.
+
+### OSR compatibility 🔄
+
+- Card detection directly vendors the upstream code (`src/lib/parser.ts` / `src/lib/question-type.ts` copied verbatim from OSR v1.15.4, body untouched), with a smoke test that compares block-by-block against the upstream `parse()`.
+- The same comment format `<!--SR:!date,interval,ease-->` is written on the line **after** the card (OSR's default `cardCommentOnSameLine: false`), and old comments written by Obsidian are recognized and reused.
+
+### Localization 🌐
+
+- English / Simplified Chinese, driven by the VS Code UI language (`auto`) or the `srs.language` setting.
+
+<br/>
+<br/>
+
+## Usage TL;DR 🚀
+
+### 1. Install & open your vault
+
+1. Clone the repo, run `npm install`, and open the directory in VS Code. Press **F5** to launch the Extension Development Host.
+2. In the host window, open your note vault with **File > Open Folder…** (or the workspace if you use a `.code-workspace`): the 🎴 "Spaced Repetition" activity-bar entry appears and the status bar shows due counts.
+
+To use it for real, package a VSIX (`npm run package`, or use `@vscode/vsce`) and install it with `code --install-extension vscode-spaced-repetition-*.vsix`.
+
+### 2. Create decks
+
+Add the tag `#flashcards` in a note where you want to write cards. To put cards in a sub-deck, use `#flashcards/YOUR_SUB_DECK_NAME`. Cards can also be assigned a deck by writing `#flashcards/subdeck` on their own line.
+
+### 3. Create cards
+
+- Single line -> `Question::Answer`
+- Single line reversed -> `Question:::Answer`
+- Multi line -> `Question` / `?` (own line) / `Answer`
+- Multi line reversed -> `Question` / `??` (own line) / `Answer`
+
+A **blank line is a card boundary** (it ends the current card) — keep each card's content contiguous.
+
+### 4. Review flashcards
+
+Open the command palette (Ctrl+Shift+P) and pick one of:
 
 | Command | Description |
 | --- | --- |
@@ -30,9 +78,15 @@ Commands (Ctrl+Shift+P):
 | `Open due note review queue` | Focus the sidebar "Due notes (#review)" |
 | `Review current note and rate it` | Rate the open note that carries `#review` |
 
-Commands, the activity-bar container and the view name are localized to the **VS Code UI language** (English `en` / Simplified Chinese `zh-cn`); the table above uses the English names.
+Select a deck, then rate your ability to recall the current card: press **Space** / "Show answer" to flip, then **`1` Again / `2` Hard / `3` Good / `4` Easy** — each button shows the next interval in days.
 
-Review panel: Space / "Show answer" flips the card, `1 Again / 2 Hard / 3 Good / 4 Easy`, and each button shows the next interval. The card body is rendered with **markdown-it** (the same engine as VS Code's built-in Markdown preview) plus **highlight.js**: tables, blockquotes, headings, lists, horizontal rules, strikethrough, inline code, links and images are supported; fenced code blocks get syntax highlighting and follow the active light/dark theme; runtime text (buttons, messages, card meta) is localized with the display language.
+### 5. Review whole notes
+
+1. Tag a note `#review` to mark it as reviewable.
+2. Run `Open due note review queue` to see which notes are due.
+3. Open a note, run `Review current note and rate it` and pick 1~4; the new due date is written into frontmatter `sr-due/sr-interval/sr-ease`.
+
+<br/>
 
 ## Flashcard syntax (same as OSR)
 
@@ -50,11 +104,12 @@ Top half: the interrupt handler — fast, must not sleep, handles urgent work.
 Bottom half: softirq / tasklet / workqueue — deferred, may sleep.
 
 # Reversed multi-line uses ??
+
+# Cloze (each ==…== becomes a separate card; the hidden one shows […], others show as context)
+The ==user-space== process calls the ==kernel== through a syscall.
 ```
 
-Note (matching OSR): a blank line between `?` and the question/answer truncates the card (degenerate cards with an empty answer are skipped); only half-width `::` `:::` `?` `??` are separators; `::` inside normal text is also recognized as a card (OSR only excludes code fences and inline code `` `a::b` ``); cloze (`==highlight==`) is not yet enabled. After grading, the comment is written on the line after the card; reversed cards share one comment with a segment per side, and unreviewed sibling cards use the placeholder segment `!2000-01-01,1,250`; old comments written by Obsidian (end-of-line or on the next line) are recognized and reused.
-
-Differences from OSR (all in the adaptation layer; the upstream body is untouched): ① before parsing, non-`<!--SR:` HTML comments are blanked out in the adaptation layer (the upstream mishandles multi-line HTML comments by deciding on the first line, swallowing subsequent content; fixed here deliberately); ② degenerate empty-answer cards are not queued; ③ cloze is disabled (passed to upstream as an empty pattern); ④ comment intervals are serialized to whole days, with no load-balance fuzzing.
+Notes (matching OSR): a blank line between `?` and the question/answer truncates the card (degenerate cards with an empty answer are skipped); only half-width `::` `:::` `?` `??` are separators; `::` inside normal text is also recognized as a card (OSR only excludes code fences and inline code `` `a::b` ``); cloze (`==highlight==` by default) is supported and each cloze deletion becomes a reviewable card — one `<!--SR:...-->` comment holds a segment per cloze, with unreviewed siblings stored as placeholders. After grading, the comment is written on the line after the card; reversed cards share one comment with a segment per side, and unreviewed sibling cards use the placeholder segment `!2000-01-01,1,250`.
 
 ## Deck source (setting `srs.deckSource`)
 
@@ -64,15 +119,11 @@ Differences from OSR (all in the adaptation layer; the upstream body is untouche
 | `folder` | All notes participate; deck = folder (≈ OSR convertFoldersToDecks) |
 | `tagAndFolder` | Only tagged notes are parsed; tag sub-path wins, otherwise the folder |
 
-Tags can be written in the body or in frontmatter `tags`; a card can also carry `#flashcards/subdeck  Q::A` on its own line to assign it to a deck.
-
-## Whole-note review (#review)
-
-Notes tagged `#review` (body or frontmatter `tags: [review]`) enter the queue: the sidebar groups them by Overdue / Today / Future / New. Open a note, run `Review current note and rate it` and pick 1~4 — the schedule is written into frontmatter `sr-due/sr-interval/sr-ease` (other fields are preserved).
+Tags can be written in the body or in frontmatter `tags`.
 
 ## Settings
 
-`srs.language` (default `auto`) · `srs.flashcardTags` (default `["#flashcards"]`) · `srs.noteReviewTags` (default `["#review"]`) · `srs.deckSource` (default `tag`) · `srs.ignoreGlobs` (default excludes .git/.obsidian/.vscode/.agents/.trash/node_modules/.github) · `srs.baseEase / easyBonus / lapsesIntervalChange / maximumInterval`
+`srs.language` (default `auto`) · `srs.flashcardTags` (default `["#flashcards"]`) · `srs.noteReviewTags` (default `["#review"]`) · `srs.deckSource` (default `tag`) · `srs.ignoreGlobs` (default excludes .git/.obsidian/.vscode/.agents/.trash/node_modules/.github) · `srs.clozePatterns` (default `["==[123;;]answer[;;hint]=="]`, i.e. `==highlight==` → cloze; empty array disables cloze) · `srs.baseEase / easyBonus / lapsesIntervalChange / maximumInterval`
 
 ### UI language (`srs.language`)
 
@@ -80,28 +131,41 @@ Notes tagged `#review` (body or frontmatter `tags: [review]`) enter the queue: t
 
 ## Known limitations
 
-- No OSR cloze cards; single-workspace mode; no statistics charts or reminders;
-- If a note has unsaved edits while reviewing, the schedule write-back may fail due to text mismatch (save and retry);
+- Single-workspace mode; no statistics charts or reminders.
+- If a note has unsaved edits while reviewing, the schedule write-back may fail due to text mismatch (save and retry).
 - Write-back saves the whole document (unsaved edits are saved too; no content is lost).
 
-## Layout
+## How it stays compatible with OSR
+
+All differences live in the adaptation layer; the upstream body is untouched. Before parsing, non-`<!--SR:` HTML comments are blanked out (the upstream mishandles multi-line HTML comments by deciding on the first line, swallowing subsequent content), degenerate empty-answer cards are not queued, cloze patterns are configurable (default matches OSR's `==…==`) but cloze cards are rendered with a plain-text formatter rather than OSR's inline-HTML spans (to keep the `html:false` render baseline), and comment intervals are serialized to whole days with no load-balance fuzzing.
+
+## Links & Resources 🔗
+
+- [Repository](https://github.com/rongbc/vscode-spaced-repetition)
+- [Issues](https://github.com/rongbc/vscode-spaced-repetition/issues)
+- [obsidian-spaced-repetition (upstream)](https://github.com/st3v3nmw/obsidian-spaced-repetition)
+
+## Development
 
 ```
 .vscode/launch.json / tasks.json / settings.json    # F5 debug config
-src/lib/        # vendored from OSR v1.15.4: parser.ts / question-type.ts / compat (body untouched)
-src/core/       # pure logic: dates, SM-2, model (unit-testable)
-src/parser/     # md utils, flashcard adapter layer (calls the vendored parser), #review frontmatter
-src/store/      # comment write-back (text-level)
-src/i18n.ts     # en / zh-cn message dictionary with t(key, vars) formatter (display language srs.language)
-src/ui/         # Webview review panel (markdown-it + highlight.js), due-note tree, status bar
+src/lib/      # vendored from OSR v1.15.4: parser.ts / question-type.ts / compat (body untouched)
+src/core/     # pure logic: dates, SM-2, model (unit-testable)
+src/parser/   # md utils, flashcard adapter layer (calls the vendored parser), #review frontmatter
+src/store/    # comment write-back (text-level)
+src/i18n.ts   # en / zh-cn message dictionary with t(key, vars) formatter (display language srs.language)
+src/ui/       # Webview review panel (markdown-it + highlight.js + KaTeX), due-note tree, status bar
 src/workspace.ts / config.ts / extension.ts
 package.nls.json / package.nls.zh-cn.json          # contribution-point title/view localization
-test/           # English fixture + smoke tests (with upstream parse() parity)
-    npm run compile   # tsc compilation
-    npm run smoke     # parse parity / scheduling / write-back round-trip self-tests
-    npm run package   # package a VSIX via @vscode/vsce
+test/         # English fixture + smoke tests (with upstream parse() parity)
 ```
+
+Scripts: `npm run compile` (tsc) · `npm run smoke` (parse parity / scheduling / write-back round-trip) · `npm run package` (VSIX via `@vscode/vsce`).
 
 ### Upstream sync (when maintaining the vendored code)
 
-`src/lib/` comes from OSR v1.15.4. To upgrade: copy the corresponding files in and replace only the import lines (parser/question-type's CardType, SR_METADATA_CALLOUT and SRSettings come from `./compat`, helpers from `./strings`), then run `npm run smoke` and check the "upstream parser consistency" section for regressions.
+`src/lib/` comes from OSR v1.15.4. To upgrade: copy the corresponding files in and replace only the import lines (parser/question-type's `CardType`, `SR_METADATA_CALLOUT` and `SRSettings` come from `./compat`, helpers from `./strings`), then run `npm run smoke` and check the "upstream parser consistency" section for regressions.
+
+## License
+
+[MIT](LICENSE)
