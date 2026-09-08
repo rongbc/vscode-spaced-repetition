@@ -8,6 +8,8 @@ export interface SRSConfig {
     noteReviewTags: string[];
     deckSource: "folder" | "tag" | "tagAndFolder";
     ignoreGlobs: string[];
+    /** 挖空卡(cloze)匹配模式。传空数组则关闭 cloze。默认与 OSR 一致:==高亮== 视为挖空 */
+    clozePatterns: string[];
     baseEase: number;
     easyBonus: number;
     lapsesIntervalChange: number;
@@ -28,6 +30,8 @@ export const DEFAULT_CONFIG: SRSConfig = {
         "**/node_modules/**",
         "**/.github/**",
     ],
+    // OSR 默认 cloze 模式:==高亮== 视为挖空(convertHighlightsToClozes 默认开启)
+    clozePatterns: ["==[123;;]answer[;;hint]=="],
     baseEase: 250,
     easyBonus: 1.3,
     lapsesIntervalChange: 0.5,
@@ -54,7 +58,7 @@ export interface FlashcardBlock {
     deckByTag: boolean;
     context: string[]; // 标题上下文,如 ["H1 构建模式"]
     reversed: boolean; // 是否反转(::: / 多行 ??)
-    sides: CardSide[]; // 1 或 2 个
+    sides: CardSide[]; // 1~N 个;N 张可答题卡(反转=2,挖空=每个挖空各一卡)
     /** 去掉调度注释后的原文行(含行首缩进等原始空白;行尾行内注释已被剥离) */
     contentLines: string[];
     /** 旧注释是否独占卡片后一行(否则为行尾行内注释或不存在) */

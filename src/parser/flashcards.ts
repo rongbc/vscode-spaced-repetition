@@ -10,6 +10,7 @@ import { FlashcardBlock, CardSide, SchedSeg, SRSConfig } from "../core/model";
 import { splitFrontmatter, extractTags, matchTagPrefix, tagSubPath } from "./md";
 import { parse as upstreamParse, ParserOptions } from "../lib/parser";
 import { CardType } from "../lib/compat";
+import { ClozeCrafter } from "clozecraft";
 
 export interface NoteCardParseResult {
     blocks: FlashcardBlock[];
@@ -67,17 +68,51 @@ function maskHtmlComments(lines: string[]): string[] {
     return out;
 }
 
-/** 上游默认分隔符(与 OSR DEFAULT_SETTINGS 一致) */
-function upstreamOptions(): ParserOptions {
+/** 上游默认分隔符(与 OSR DEFAULT_SETTINGS 一致);cloze 模式来自配置 */
+function upstreamOptions(clozePatterns: string[]): ParserOptions {
     return {
         singleLineCardSeparator: "::",
         singleLineReversedCardSeparator: ":::",
         multilineCardSeparator: "?",
         multilineReversedCardSeparator: "??",
         multilineCardEndMarker: "",
-        // 插件暂不实现挖空卡:传空 pattern,上游 isClozeNote 恒为 false
-        clozePatterns: [],
+        clozePatterns,
     };
+}
+
+/**
+ * 由挖空(cloze)笔记的原文行生成各张卡的正反面。
+ * 输出为纯文本(markdown 安全):用 clozecraft 默认 simpleFormatter(挖空处显示 [...],答案处显示原文),
+ * 而非 OSR 的 QuestionTypeClozeFormatter(内联 HTML span),以契合复习面板 html:false 的安全基线。
+ * 行首 #flashcards/子牌组 标签仅用于牌组归类与显示,不会写回(contentLines 保持原文)。
+ */
+function buildClozeSides(
+    contentLines: string[],
+    cfg: SRSConfig,
+): { sides: CardSide[]; tagSub: string | null } | null {
+    if (cfg.clozePatterns.length === 0) return null;
+    let tagSub: string | null = null;
+    let srcLines = [...contentLines];
+    const first = contentLines[0] ?? "";
+    const lead = first.match(/^(#\S+)(\s+)(.*)$/);
+    if (lead && matchTagPrefix(cfg.flashcardTags, lead[1])) {
+        const sub = tagSubPath(cfg.flashcardTags, lead[1]);
+        if (sub !== null) tagSub = sub;
+        srcLines = [lead[3], ...contentLines.slice(1)];
+    }
+    const src = srcLines.join("\n").trimEnd();
+    if (src.trim() === "") return null;
+    const note = new ClozeCrafter(cfg.clozePatterns).createClozeNote(src);
+    if (!note || note.numCards === 0) return null;
+    const sides: CardSide[] = [];
+    for (let i = 0; i < note.numCards; i++) {
+        const front = note.getCardFront(i).trim();
+        const back = note.getCardBack(i).trim();
+        if (front === "" || back === "") continue; // 退化挖空(空正/反面)不入队
+        sides.push({ front, back });
+    }
+    if (sides.length === 0) return null;
+    return { sides, tagSub };
 }
 
 /** 把一行的行内调度注释剥离,返回 { 文本, 注释内文 } */
@@ -100,7 +135,7 @@ export function parseFlashcards(
     // ---------- ① 识别:调用上游 parse()(frontmatter/HTML注释空行化,行号与原文一致) ----------
     const fmBlanked = allLines.map((l, i) => (i < bodyStart ? "" : l));
     const prepared = maskHtmlComments(fmBlanked);
-    const infos = upstreamParse(prepared.join("\n"), upstreamOptions());
+    const infos = upstreamParse(prepared.join("\n"), upstreamOptions(cfg.clozePatterns));
 
     // ---------- ② 上下文(标题栈)与笔记级标签 ----------
     interface Row {
@@ -173,7 +208,6 @@ export function parseFlashcards(
     // ---------- ③ 块组装:还原原文行 -> 剥注释 -> 切前后两面 ----------
     const blocks: FlashcardBlock[] = [];
     for (const info of infos) {
-        if (info.cardType === CardType.Cloze) continue; // 未开启 pattern,正常不会出现
         const regionLines = allLines.slice(info.firstLineNum, info.lastLineNum + 1);
         const contentLines: string[] = [];
         let commentInner: string | null = null;
@@ -193,11 +227,16 @@ export function parseFlashcards(
             contentLines.push(rawLine);
         }
 
-        let sides: CardSide[];
+        let sides: CardSide[] = [];
         let blockTagSub: string | null = null;
         let reversed = false;
 
-        if (info.cardType === CardType.SingleLineBasic || info.cardType === CardType.SingleLineReversed) {
+        if (info.cardType === CardType.Cloze) {
+            const built = buildClozeSides(contentLines, cfg);
+            if (!built) continue; // 未匹配到有效挖空或退化卡
+            sides = built.sides;
+            blockTagSub = built.tagSub;
+        } else if (info.cardType === CardType.SingleLineBasic || info.cardType === CardType.SingleLineReversed) {
             let question = contentLines[0].trim();
             const lead = question.match(/^(#\S+)(\s+)(.*)$/);
             if (lead && matchTagPrefix(cfg.flashcardTags, lead[1])) {
@@ -248,6 +287,8 @@ export function parseFlashcards(
                   ]
                 : [{ front, back }];
         }
+
+        if (sides.length === 0) continue;
 
         const segsRaw = commentInner ? parseCommentSegments(commentInner) : [];
         const segs: (SchedSeg | null)[] = sides.map((_, k) => segsRaw[k] ?? null);

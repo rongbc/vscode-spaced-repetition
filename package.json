@@ -83,6 +83,16 @@
                     "default": "tag",
                     "description": "Deck source."
                 },
+                "srs.clozePatterns": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "default": [
+                        "==[123;;]answer[;;hint]=="
+                    ],
+                    "description": "Cloze (fill-in-the-blank) match patterns. Empty array disables cloze. Default matches OSR: ==highlight== is treated as a cloze."
+                },
                 "srs.ignoreGlobs": {
                     "type": "array",
                     "items": {

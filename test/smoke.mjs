@@ -160,8 +160,8 @@ const sampleText = readFileSync(join(root, "test/fixtures/sample.md"), "utf8");
 const parsed = parse(sampleText, { deckSource: "folder" });
 const B = parsed.blocks;
 const frontCount = (sub) => B.filter((b) => b.sides[0].front.includes(sub)).length;
-check("块数=7(interrupt halves、fork child、fork parent、plain、C++ tag、reverse、LED)", () => {
-    assert.strictEqual(B.length, 7, JSON.stringify(B.map((b) => b.sides[0].front.slice(0, 16))));
+check("块数=9(interrupt halves、fork child、fork parent、plain、C++ tag、reverse、LED、cloze 单挖空、cloze 多挖空)", () => {
+    assert.strictEqual(B.length, 9, JSON.stringify(B.map((b) => b.sides[0].front.slice(0, 16))));
 });
 check("行首标签卡牌组=cpp,覆盖笔记标签", () => {
     const b = B.find((x) => x.sides[0].front.includes("created C++"));
@@ -176,6 +176,21 @@ check("普通卡牌组=os/interrupts(标签路径)", () => {
 });
 check("HTML 注释内无卡", () => {
     assert.strictEqual(frontCount("must not become any card"), 0);
+});
+check("cloze 卡1:单挖空 -> 正面 [...],背面显示答案", () => {
+    const b = B.find((x) => x.sides[0].front.includes("is the entry point from user space"));
+    assert.ok(b, "缺少单挖空卡");
+    assert.strictEqual(b.sides.length, 1);
+    assert.strictEqual(b.sides[0].front, "A [...] is the entry point from user space into the kernel.");
+    assert.strictEqual(b.sides[0].back, "A system call is the entry point from user space into the kernel.");
+});
+check("cloze 卡2:多挖空 -> 一个块含两卡,隐藏与答案一致", () => {
+    const b = B.find((x) => x.sides.length === 2 && x.sides[0].front.includes("schedules"));
+    assert.ok(b, "缺少多挖空卡");
+    assert.strictEqual(b.sides[0].front, "The [...] schedules the bottom half after the interrupt.");
+    assert.strictEqual(b.sides[1].front, "The kernel schedules the [...] after the interrupt.");
+    assert.strictEqual(b.sides[0].back, "The kernel schedules the bottom half after the interrupt.");
+    assert.strictEqual(b.sides[1].back, b.sides[0].back, "两卡背面(完整原文)应相同");
 });
 
 console.log("== 复习面板全量渲染(markdown-it + highlight.js)==");
@@ -326,6 +341,57 @@ console.log("== 写回回环 ==");
     assert.ok(tb && tb.sides[0].back.includes("GPIO"), "多行卡答案被破坏");
     assert.strictEqual(p.blocks.length, B.length);
 }
+
+console.log("== cloze 挖空卡 ==");
+const cfgFolder = { ...cfg, deckSource: "folder" };
+check("单挖空 ==dog== -> 1 卡,正面 [...],背面显示答案", () => {
+    const b = one("The ==dog== barks");
+    assert.strictEqual(b.sides.length, 1);
+    assert.ok(!b.reversed);
+    assert.strictEqual(b.sides[0].front, "The [...] barks");
+    assert.strictEqual(b.sides[0].back, "The dog barks");
+});
+check("多挖空 -> 每处挖空各一卡,其余挖空显示答案", () => {
+    const b = one("The ==dog== barks and ==cat== meows");
+    assert.strictEqual(b.sides.length, 2);
+    assert.strictEqual(b.sides[0].front, "The [...] barks and cat meows");
+    assert.strictEqual(b.sides[0].back, "The dog barks and cat meows");
+    assert.strictEqual(b.sides[1].front, "The dog barks and [...] meows");
+});
+check("多行挖空保留换行", () => {
+    const b = one("line1\nline2 ==dog==\nline3");
+    assert.strictEqual(b.sides[0].front, "line1\nline2 [...]\nline3");
+    assert.strictEqual(b.sides[0].back, "line1\nline2 dog\nline3");
+});
+check("行首 #flashcards/子牌组 标签归类且不留在内容里", () => {
+    const b = one("#flashcards/动物 The ==dog== barks");
+    assert.strictEqual(b.deck, "动物");
+    assert.ok(!b.sides[0].front.includes("#flashcards"));
+});
+check("clozePatterns 为空 -> cloze 关闭", () => {
+    const r = parse("The ==dog== barks", { clozePatterns: [] });
+    assert.strictEqual(r.blocks.length, 0);
+});
+check("cloze 写回:多卡共享一个注释、未复习段用占位", () => {
+    const text = "The ==dog== barks and ==cat== meows\n";
+    const b = one(text);
+    assert.strictEqual(b.sides.length, 2);
+    const newSeg = { due: dates.addDays(todays(), 4), interval: 4, ease: 270 };
+    const text2 = writer.setCardScheduleText(text, cfgFolder, "x.md", 0, [newSeg, null]);
+    assert.ok(text2.includes(`<!--SR:!${newSeg.due},4,270!2000-01-01,1,250-->`), text2);
+    const p2 = flashcards.parseFlashcards("x.md", text2, cfgFolder);
+    assert.strictEqual(p2.blocks[0].sides.length, 2);
+    assert.deepStrictEqual(p2.blocks[0].segs[0], newSeg);
+    assert.strictEqual(p2.blocks[0].segs[1], null);
+});
+check("cloze 正反面经 renderFullMd 渲染(纯文本,html:false 无误转义)", () => {
+    const b = one("The ==dog== barks");
+    const frontHtml = fullMd.renderFullMd(b.sides[0].front);
+    const backHtml = fullMd.renderFullMd(b.sides[0].back);
+    assert.ok(frontHtml.includes("[...]"), "正面应含 [...] 占位");
+    assert.ok(backHtml.includes("dog"), "背面应显示答案");
+    assert.ok(!frontHtml.includes("&lt;span"), "纯文本 cloze 不应出现被转义的 span");
+});
 
 console.log("== 整篇笔记 #review ==");
 {

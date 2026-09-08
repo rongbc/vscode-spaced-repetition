@@ -11,6 +11,10 @@ function strs(v: unknown, dflt: string[]): string[] {
         ? (v as string[])
         : dflt;
 }
+// clozePatterns 允许空数组(空 = 关闭 cloze),与其它数组设置不同,不得回退到默认值。
+function strArrayAllowEmpty(v: unknown, dflt: string[]): string[] {
+    return Array.isArray(v) && v.every((x) => typeof x === "string") ? (v as string[]) : dflt;
+}
 
 export function readConfig(): SRSConfig {
     const c = vscode.workspace.getConfiguration("srs");
@@ -24,6 +28,7 @@ export function readConfig(): SRSConfig {
         noteReviewTags: strs(c.get("noteReviewTags"), DEFAULT_CONFIG.noteReviewTags),
         deckSource,
         ignoreGlobs: strs(c.get("ignoreGlobs"), DEFAULT_CONFIG.ignoreGlobs),
+        clozePatterns: strArrayAllowEmpty(c.get("clozePatterns"), DEFAULT_CONFIG.clozePatterns),
         baseEase: num(c.get("baseEase"), DEFAULT_CONFIG.baseEase),
         easyBonus: num(c.get("easyBonus"), DEFAULT_CONFIG.easyBonus),
         lapsesIntervalChange: num(c.get("lapsesIntervalChange"), DEFAULT_CONFIG.lapsesIntervalChange),

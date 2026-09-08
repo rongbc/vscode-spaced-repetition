@@ -34,27 +34,42 @@ void irq_handler(struct device *dev)
 - workqueue — process context, sleeping is fine
 Read the [kernel documentation](https://docs.kernel.org/) or browse https://kernel.org; the old `tasklet` API is ~~deprecated~~ but still common. Icon: ![extension icon](./srs-icon.svg)
 Inline math: $E = mc^2$; display math: $$E = mc^2$$; a square root: $\sqrt{2}$.
+<!--SR:!2026-09-09,1,230-->
 
 ## Single-line cards
 
 `fork()` in the child process returns?::0
+<!--SR:!2026-09-09,1,230-->
 
 `fork()` in the parent process returns?::the child's PID
+<!--SR:!2026-09-09,1,230-->
 
 Plain question ::Plain answer
+<!--SR:!2026-09-09,1,230-->
 
 ## Leading-tag card
 
 #flashcards/cpp Who created C++?::Bjarne Stroustrup — see [cppreference](https://en.cppreference.com/w/)
+<!--SR:!2026-09-09,1,230-->
 
 ## Reversed single-line card
 
 Reverse me:::asked the **other way** with `inline code` and *emphasis*
+<!--SR:!2026-09-09,1,230!2026-09-09,1,230-->
 
 ## Multi-line reversed card
 
 How does an LED blink?
 ??
 Toggle the **GPIO** output level high and low via `gpiod_set_value()`.
+<!--SR:!2026-09-09,1,230!2026-09-09,1,230-->
+
+## Cloze cards
+
+A ==system call== is the entry point from user space into the kernel.
+<!--SR:!2026-09-09,1,230-->
+
+The ==kernel== schedules the ==bottom half== after the ==interrupt==.
+<!--SR:!2000-01-01,1,250!2000-01-01,1,250!2026-09-09,1,230-->
 
 <!-- this comment must not become any card -->
