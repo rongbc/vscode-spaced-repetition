@@ -1,8 +1,8 @@
 {
     "name": "vscode-spaced-repetition",
     "displayName": "Spaced Repetition",
-    "description": "Review flashcards from Markdown notes in VS Code: parsing and scheduling-comment syntax compatible with obsidian-spaced-repetition (:: / ::: / multiline ? and ??, <!--SR:!...-->), SM-2 scheduling, and whole-note #review.",
-    "version": "0.3.0",
+    "description": "Review flashcards from Markdown notes in VS Code: parsing and scheduling-comment syntax compatible with obsidian-spaced-repetition (:: / ::: / multiline ? and ??, <!--SR:!...-->), FSRS scheduling by default (or SM-2/OSR), and whole-note #review.",
+    "version": "0.4.0",
     "publisher": "RongBaichuan",
     "author": "rong baichuan",
     "license": "MIT",
@@ -110,6 +110,26 @@
                     ],
                     "description": "Globs to ignore when scanning notes (relative to the workspace root)."
                 },
+                "srs.algorithm": {
+                    "type": "string",
+                    "enum": [
+                        "fsrs",
+                        "SM-2-OSR"
+                    ],
+                    "enumDescriptions": [
+                        "Free Spaced Repetition Scheduler: memory-state based (stability/difficulty), the default algorithm of FSRS4Anki. Scheduling comments are written in the FSRS format read/written by obsidian-spaced-repetition (<!--SR:!fsrs,...-->). Legacy SM-2 comments are imported into FSRS when a card is next reviewed.",
+                        "The original SM-2 (OSR variant) algorithm used by obsidian-spaced-repetition (<!--SR:!date,interval,ease-->). 'SM-2-OSR' is the same literal that obsidian-spaced-repetition stores in its SRAlgorithmType.SM_2_OSR. FSRS comments are converted back to SM-2 when a card is next reviewed."
+                    ],
+                    "default": "fsrs",
+                    "description": "Flashcard scheduling algorithm (fsrs, or SM-2-OSR = obsidian-spaced-repetition's variant of SM-2)."
+                },
+                "srs.fsrsDesiredRetention": {
+                    "type": "number",
+                    "default": 0.9,
+                    "minimum": 0.7,
+                    "maximum": 0.97,
+                    "description": "FSRS desired retention (0-1, defaults to 0.9 like FSRS4Anki / obsidian-spaced-repetition)."
+                },
                 "srs.baseEase": {
                     "type": "number",
                     "default": 250,
@@ -194,6 +214,7 @@
         "highlight.js": "^11.12.0",
         "katex": "^0.18.7",
         "markdown-it": "^15.0.1",
-        "markdown-it-texmath": "^1.0.0"
+        "markdown-it-texmath": "^1.0.0",
+        "ts-fsrs": "^5.4.2"
     }
 }

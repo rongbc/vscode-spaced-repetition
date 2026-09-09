@@ -1,7 +1,85 @@
 # Third-Party Notices
 
 This project includes third-party source code from
-[obsidian-spaced-repetition](https://github.com/st3v3nmw/obsidian-spaced-repetition).
+[obsidian-spaced-repetition](https://github.com/st3v3nmw/obsidian-spaced-repetition),
+and depends on the FSRS scheduling library [ts-fsrs](https://github.com/open-spaced-repetition/ts-fsrs)
+(official TypeScript port of the [FSRS4Anki](https://github.com/open-spaced-repetition/fsrs4anki) algorithm).
+
+## ts-fsrs
+
+- Package: `ts-fsrs` (npm dependency, bundled into the VSIX)
+- Version: 5.4.x
+- Upstream repository: https://github.com/open-spaced-repetition/ts-fsrs
+
+`ts-fsrs` is the TypeScript implementation of the FSRS spaced-repetition algorithm
+used by the project's default `srs.algorithm = "fsrs"` scheduling (`src/core/fsrs.ts`).
+The FSRS algorithm itself originates from [FSRS4Anki](https://github.com/open-spaced-repetition/fsrs4anki).
+
+Copyright (c) 2026 Open Spaced Repetition
+
+The above third-party source code is licensed under the MIT License:
+
+> MIT License
+>
+> Copyright (c) 2026 Open Spaced Repetition
+>
+> Permission is hereby granted, free of charge, to any person obtaining a copy
+> of this software and associated documentation files (the "Software"), to deal
+> in the Software without restriction, including without limitation the rights
+> to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+> copies of the Software, and to permit persons to whom the Software is
+> furnished to do so, subject to the following conditions:
+>
+> The above copyright notice and this permission notice shall be included in all
+> copies or substantial portions of the Software.
+>
+> THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+> IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+> FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+> AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+> LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+> OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+> SOFTWARE.
+
+For the complete upstream license, see:
+https://github.com/open-spaced-repetition/ts-fsrs/blob/main/LICENSE
+
+## FSRS4Anki
+
+- Repository: https://github.com/open-spaced-repetition/fsrs4anki
+
+This project does not vendor FSRS4Anki code; the algorithm is consumed through
+its official TypeScript port `ts-fsrs` above. The FSRS4Anki project is attributed
+for defining the algorithm and its reference implementation.
+
+Copyright (c) 2022 open-spaced-repetition
+
+The above third-party source code is licensed under the MIT License:
+
+> MIT License
+>
+> Copyright (c) 2022 open-spaced-repetition
+>
+> Permission is hereby granted, free of charge, to any person obtaining a copy
+> of this software and associated documentation files (the "Software"), to deal
+> in the Software without restriction, including without limitation the rights
+> to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+> copies of the Software, and to permit persons to whom the Software is
+> furnished to do so, subject to the following conditions:
+>
+> The above copyright notice and this permission notice shall be included in all
+> copies or substantial portions of the Software.
+>
+> THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+> IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+> FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+> AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+> LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+> OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+> SOFTWARE.
+
+For the complete upstream license, see:
+https://github.com/open-spaced-repetition/fsrs4anki/blob/master/LICENSE
 
 ## obsidian-spaced-repetition
 
@@ -20,6 +98,13 @@ The following files in this project are derived from the upstream project:
 These files are vendored from the upstream project. Their original implementation
 is preserved except for the import/adaptation changes described in the project's
 README.
+
+Additionally, the FSRS scheduling layer in this project (`src/core/fsrs.ts`,
+`src/core/scheduler.ts`) mirrors the on-disk comment format and conversion helpers
+of the FSRS integration implemented on the upstream `master` branch
+(`src/scheduling/algorithms/fsrs/*`, upstream commit 3d5079f3bcd54531b084040d1c0178f15f681510).
+It is an independent re-implementation on native JavaScript `Date` (no moment),
+not vendored code.
 
 Copyright (c) 2021 - 2024 Stephen Mwangi
 

@@ -4,6 +4,7 @@ import * as vscode from "vscode";
 import { readConfig } from "./config";
 import { DueBlock, Grade, SRSConfig } from "./core/model";
 import { reviewCardSchedule, newCardSchedule } from "./core/sm2";
+import { segDueDay } from "./core/scheduler";
 import { humanizeInterval, todayStr } from "./core/dates";
 import { scanWorkspace, writeNoteGrade, readCurrentText } from "./workspace";
 import { ReviewController, ReviewItem, uriOfRel } from "./ui/review";
@@ -36,7 +37,7 @@ function dueBlocksToReviewItems(
             front: side.front,
             back: side.back,
             isNew: d.isNew,
-            due: d.sched?.due ?? null,
+            due: d.sched ? segDueDay(d.sched) : null,
             line: d.block.line + 1,
             segs: [...d.block.segs],
         };

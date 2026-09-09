@@ -23,7 +23,14 @@ export function readConfig(): SRSConfig {
         deckSourceRaw === "tag" || deckSourceRaw === "tagAndFolder"
             ? deckSourceRaw
             : "folder";
+    const algorithmRaw = c.get<string>("algorithm", DEFAULT_CONFIG.algorithm);
+    // 仅两个合法值;其余(含未知值)回退默认 fsrs
+    const algorithm: SRSConfig["algorithm"] =
+        algorithmRaw === "SM-2-OSR" ? "SM-2-OSR" : "fsrs";
+    // FSRS 期望保留率:夹在 0.7~0.97(与 package.json 的 minimum/maximum 一致,防旧配置越界)
+    const retention = num(c.get("fsrsDesiredRetention"), DEFAULT_CONFIG.fsrsDesiredRetention);
     return {
+        algorithm,
         flashcardTags: strs(c.get("flashcardTags"), DEFAULT_CONFIG.flashcardTags),
         noteReviewTags: strs(c.get("noteReviewTags"), DEFAULT_CONFIG.noteReviewTags),
         deckSource,
@@ -33,5 +40,6 @@ export function readConfig(): SRSConfig {
         easyBonus: num(c.get("easyBonus"), DEFAULT_CONFIG.easyBonus),
         lapsesIntervalChange: num(c.get("lapsesIntervalChange"), DEFAULT_CONFIG.lapsesIntervalChange),
         maximumInterval: num(c.get("maximumInterval"), DEFAULT_CONFIG.maximumInterval),
+        fsrsDesiredRetention: Math.min(0.97, Math.max(0.7, retention)),
     };
 }

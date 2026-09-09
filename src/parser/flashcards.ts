@@ -6,7 +6,8 @@
 // 不在此处引入任何额外解析规则(如全角分隔符、命名空间过滤等)。
 
 import { DUMMY_DUE } from "../core/dates";
-import { FlashcardBlock, CardSide, SchedSeg, SRSConfig } from "../core/model";
+import { FlashcardBlock, CardSide, OsrSeg, SchedSeg, SRSConfig } from "../core/model";
+import { parseFsrsSegString } from "../core/fsrs";
 import { splitFrontmatter, extractTags, matchTagPrefix, tagSubPath } from "./md";
 import { parse as upstreamParse, ParserOptions } from "../lib/parser";
 import { CardType } from "../lib/compat";
@@ -18,17 +19,21 @@ export interface NoteCardParseResult {
     noteTagSub: string | null;
 }
 
-/** 注释内容 "!2024-01-02,3,250!..." 拆成分段;fsrs 段或非法段 -> null;占位日期视为从未复习 */
+/**
+ * 注释内容 "!2024-01-02,3,250!fsrs,...!..." 拆成分段。
+ * 每段:SM-2(OSR)段 -> OsrSeg;FSRS 段("fsrs,...") -> FsrsSeg;占位日期(2000-01-01)或非法段 -> null(从未复习)。
+ * 与 obsidian-spaced-repetition 的 CommentParser.parseMultiScheduleComment 语义一致(多算法分段可共存)。
+ */
 export function parseCommentSegments(comment: string): (SchedSeg | null)[] {
     return comment
         .split("!")
         .map((s) => s.trim())
         .filter((s) => s.length > 0)
         .map((s) => {
-            if (s.startsWith("fsrs")) return null;
+            if (s.startsWith("fsrs,")) return parseFsrsSegString(s);
             const m = s.match(/^(\d{4}-\d{2}-\d{2}),([\d.]+),(\d+)/);
             if (!m) return null;
-            const seg: SchedSeg = { due: m[1], interval: Number(m[2]), ease: Number(m[3]) };
+            const seg: OsrSeg = { kind: "osr", due: m[1], interval: Number(m[2]), ease: Number(m[3]) };
             return seg.due === DUMMY_DUE ? null : seg;
         });
 }

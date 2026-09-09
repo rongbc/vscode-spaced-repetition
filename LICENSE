@@ -22,5 +22,14 @@ SOFTWARE.
 
 ---
 
-This repository also contains third-party code licensed separately.
-See THIRD-PARTY-NOTICES.md for details.
+This repository also contains and depends on third-party code licensed separately:
+
+- Vendored code from [obsidian-spaced-repetition](https://github.com/st3v3nmw/obsidian-spaced-repetition)
+  (MIT, Copyright (c) 2021 - 2024 Stephen Mwangi): `src/lib/parser.ts`, `src/lib/question-type.ts`,
+  `src/lib/compat.ts`, `src/lib/strings.ts`.
+- The [ts-fsrs](https://github.com/open-spaced-repetition/ts-fsrs) npm dependency (MIT,
+  Copyright (c) 2026 Open Spaced Repetition) — the official TypeScript port of the
+  [FSRS4Anki](https://github.com/open-spaced-repetition/fsrs4anki) algorithm
+  (MIT, Copyright (c) 2022 open-spaced-repetition).
+
+See THIRD-PARTY-NOTICES.md for the full license texts.

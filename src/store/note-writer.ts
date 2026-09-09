@@ -5,20 +5,19 @@
 
 import { DUMMY_DUE } from "../core/dates";
 import { SchedSeg, SRSConfig } from "../core/model";
+import { formatFsrsSegString } from "../core/fsrs";
 import { parseFlashcards } from "../parser/flashcards";
 
-/** 依据分段生成注释内文("!seg!seg..."),null 分段用占位 */
-export function buildCommentInner(
-    segs: (SchedSeg | null)[],
-    cfg: SRSConfig,
-): string {
-    return segs
-        .map((s) =>
-            s
-                ? `!${s.due},${Math.round(s.interval)},${Math.round(s.ease)}`
-                : `!${DUMMY_DUE},1,${cfg.baseEase}`,
-        )
-        .join("");
+/** 序列化一个分段注释内文;null(从未复习)用 SM-2 占位 !2000-01-01,1,baseEase(与上游 formatCardSchedule 一致) */
+function formatSeg(seg: SchedSeg | null, cfg: SRSConfig): string {
+    if (seg === null) return `!${DUMMY_DUE},1,${cfg.baseEase}`;
+    if (seg.kind === "fsrs") return formatFsrsSegString(seg);
+    return `!${seg.due},${Math.round(seg.interval)},${Math.round(seg.ease)}`;
+}
+
+/** 依据分段生成注释内文("!seg!seg...") */
+export function buildCommentInner(segs: (SchedSeg | null)[], cfg: SRSConfig): string {
+    return segs.map((s) => formatSeg(s, cfg)).join("");
 }
 
 /**

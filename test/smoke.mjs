@@ -11,6 +11,8 @@ const require = createRequire(import.meta.url);
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const dates = require(join(root, "out/core/dates.js"));
 const sm2 = require(join(root, "out/core/sm2.js"));
+const fsrs = require(join(root, "out/core/fsrs.js"));
+const scheduler = require(join(root, "out/core/scheduler.js"));
 const model = require(join(root, "out/core/model.js"));
 const flashcards = require(join(root, "out/parser/flashcards.js"));
 const noteReview = require(join(root, "out/parser/note-review.js"));
@@ -18,6 +20,9 @@ const writer = require(join(root, "out/store/note-writer.js"));
 const fullMd = require(join(root, "out/ui/markdown.js"));
 
 const cfg = { ...model.DEFAULT_CONFIG };
+// OSR(SM-2)专有用例:显式把算法设为 osr,避免默认 fsrs 的迁移语义干扰旧注释断言
+const cfgOsr = { ...cfg, algorithm: "SM-2-OSR" };
+const osrSeg = (due, interval, ease) => ({ kind: "osr", due, interval, ease });
 let failed = 0;
 function check(name, fn) {
     try {
@@ -94,7 +99,7 @@ check("单行卡吸收后一行注释(OSR:下一行以 <!--SR: 开头)", () => {
     const b = one("Question::Answer\n<!--SR:!2021-08-11,4,270-->");
     assert.strictEqual(b.comment, "!2021-08-11,4,270");
     assert.ok(b.commentOnNextLine);
-    assert.deepStrictEqual(b.segs[0], { due: "2021-08-11", interval: 4, ease: 270 });
+    assert.deepStrictEqual(b.segs[0], { kind: "osr", due: "2021-08-11", interval: 4, ease: 270 });
     assert.strictEqual(b.contentLines.length, 1);
 });
 check("单行卡同行行尾注释也能识别", () => {
@@ -304,7 +309,7 @@ console.log("== 写回回环 ==");
 {
     const target = B.find((x) => x.sides[0].front.includes("child process"));
     const ord = B.indexOf(target);
-    const newSeg = { due: dates.addDays(todays(), 4), interval: 4, ease: 270 };
+    const newSeg = osrSeg(dates.addDays(todays(), 4), 4, 270);
     const text2 = writer.setCardScheduleText(sampleText, cfg, "x.md", ord, [newSeg]);
     assert.ok(
         text2.includes(`in the child process returns?::0\n<!--SR:!${newSeg.due},4,270-->`),
@@ -315,7 +320,7 @@ console.log("== 写回回环 ==");
     const t2 = p2.blocks[ord];
     assert.deepStrictEqual(t2.segs[0], newSeg);
     // 第二次评级:原位更新,不产生重复注释
-    const newSeg2 = { due: dates.addDays(todays(), 100), interval: 100, ease: 290 };
+    const newSeg2 = osrSeg(dates.addDays(todays(), 100), 100, 290);
     const text3 = writer.setCardScheduleText(text2, cfg, "x.md", ord, [newSeg2]);
     assert.strictEqual((text3.match(/<!--SR:/g) || []).length, 1);
     assert.ok(text3.includes(`<!--SR:!${newSeg2.due},100,290-->`));
@@ -324,7 +329,7 @@ console.log("== 写回回环 ==");
     // 反转卡首次写回:真实段 + 占位段
     const target = B.find((x) => x.sides[0].front.includes("Reverse me"));
     const ord = B.indexOf(target);
-    const newSeg = { due: dates.addDays(todays(), 4), interval: 4, ease: 270 };
+    const newSeg = osrSeg(dates.addDays(todays(), 4), 4, 270);
     const text = writer.setCardScheduleText(sampleText, cfg, "x.md", ord, [newSeg, null]);
     const p = flashcards.parseFlashcards("x.md", text, cfg);
     const tb = p.blocks[ord];
@@ -334,7 +339,7 @@ console.log("== 写回回环 ==");
     // 多行卡写回:答案内容不被破坏
     const target = B.find((x) => x.sides[0].front.includes("LED blink"));
     const ord = B.indexOf(target);
-    const newSeg = { due: dates.addDays(todays(), 4), interval: 4, ease: 270 };
+    const newSeg = osrSeg(dates.addDays(todays(), 4), 4, 270);
     const text = writer.setCardScheduleText(sampleText, cfg, "x.md", ord, [newSeg, null]);
     const p = flashcards.parseFlashcards("x.md", text, cfg);
     const tb = p.blocks.find((x) => x.sides[0].front.includes("LED blink"));
@@ -376,7 +381,7 @@ check("cloze 写回:多卡共享一个注释、未复习段用占位", () => {
     const text = "The ==dog== barks and ==cat== meows\n";
     const b = one(text);
     assert.strictEqual(b.sides.length, 2);
-    const newSeg = { due: dates.addDays(todays(), 4), interval: 4, ease: 270 };
+    const newSeg = osrSeg(dates.addDays(todays(), 4), 4, 270);
     const text2 = writer.setCardScheduleText(text, cfgFolder, "x.md", 0, [newSeg, null]);
     assert.ok(text2.includes(`<!--SR:!${newSeg.due},4,270!2000-01-01,1,250-->`), text2);
     const p2 = flashcards.parseFlashcards("x.md", text2, cfgFolder);
@@ -392,6 +397,154 @@ check("cloze 正反面经 renderFullMd 渲染(纯文本,html:false 无误转义)
     assert.ok(backHtml.includes("dog"), "背面应显示答案");
     assert.ok(!frontHtml.includes("&lt;span"), "纯文本 cloze 不应出现被转义的 span");
 });
+
+console.log("== FSRS 调度(默认算法;注释格式与 OSR 上游一致)==");
+{
+    const NOW = new Date("2024-05-01T12:00:00.000Z");
+    check("默认配置 algorithm = fsrs", () => {
+        assert.strictEqual(cfg.algorithm, "fsrs");
+        assert.strictEqual(cfg.fsrsDesiredRetention, 0.9);
+    });
+    check("新卡 easy -> Review 8 天(数值与 ts-fsrs 输出一致)", () => {
+        const s = fsrs.newCardFsrs("easy", cfg, NOW);
+        assert.strictEqual(s.kind, "fsrs");
+        assert.strictEqual(s.due, "2024-05-09T12:00:00.000Z");
+        assert.strictEqual(s.interval, 8);
+        assert.strictEqual(s.stability, 8.2956);
+        assert.strictEqual(s.difficulty, 1);
+        assert.strictEqual(s.state, 2); // Review
+        assert.strictEqual(s.reps, 1);
+        assert.strictEqual(s.lapses, 0);
+        assert.strictEqual(s.learningSteps, 0);
+        assert.strictEqual(s.lastReview, "2024-05-01T12:00:00.000Z");
+    });
+    check("新卡 good -> 学习步进(10 分钟 Learning,interval 0)", () => {
+        const s = fsrs.newCardFsrs("good", cfg, NOW);
+        assert.strictEqual(s.state, 1); // Learning
+        assert.strictEqual(s.interval, 0);
+        assert.strictEqual(s.learningSteps, 1);
+        assert.strictEqual(s.due, "2024-05-01T12:10:00.000Z");
+    });
+    check("学习步进卡再次 good -> 毕业进入 Review", () => {
+        const first = fsrs.newCardFsrs("good", cfg, NOW);
+        const second = fsrs.reviewCardFsrs("good", first, cfg, new Date("2024-05-01T12:10:00.000Z"));
+        assert.strictEqual(second.state, 2);
+        assert.ok(second.interval >= 1, `interval=${second.interval}`);
+    });
+    check("旧 SM-2 卡在 fsrs 下复习 -> 迁移成 FSRS(Good: 120 天)", () => {
+        const legacy = osrSeg("2024-04-20", 34, 290);
+        const s = fsrs.reviewCardFsrs("good", legacy, cfg, NOW);
+        assert.strictEqual(s.kind, "fsrs");
+        assert.strictEqual(s.state, 2);
+        assert.strictEqual(s.interval, 120);
+        assert.strictEqual(s.due, "2024-08-29T12:00:00.000Z");
+        assert.strictEqual(s.lastReview, "2024-05-01T12:00:00.000Z");
+    });
+    check("calcNextSeg 按算法分派:fsrs 新卡/迁移;SM-2-OSR 新卡/fsrs 回迁", () => {
+        assert.strictEqual(scheduler.calcNextSeg("easy", null, cfg, NOW).kind, "fsrs");
+        assert.strictEqual(scheduler.calcNextSeg("good", osrSeg("2024-04-20", 34, 290), cfg, NOW).kind, "fsrs");
+        assert.strictEqual(scheduler.calcNextSeg("easy", null, cfgOsr).kind, "osr");
+        const fsrsSeg = fsrs.newCardFsrs("easy", cfg, NOW);
+        const back = scheduler.calcNextSeg("good", fsrsSeg, cfgOsr, NOW);
+        assert.strictEqual(back.kind, "osr");
+        assert.ok(back.ease >= 130 && back.ease <= 370);
+    });
+    check("difficulty <-> ease 换算(与上游 easeToDifficulty/difficultyToEase 一致)", () => {
+        assert.strictEqual(fsrs.easeToDifficulty(250), 5.5);
+        assert.strictEqual(fsrs.difficultyToEase(5.5), 250);
+        assert.strictEqual(fsrs.easeToDifficulty(130), 10);
+        assert.strictEqual(fsrs.easeToDifficulty(370), 1);
+        assert.strictEqual(fsrs.easeToDifficulty(0), 10); // 夹取到 130~370
+        assert.strictEqual(fsrs.difficultyToEase(1), 370);
+        assert.strictEqual(fsrs.difficultyToEase(10), 130);
+    });
+    check("FSRS 注释分段序列化/解析与 OSR 示例一致", () => {
+        const raw = "!fsrs,2023-09-06T00:10:00.000Z,0,0.4,5.5,1,1,0,1,2023-09-06T00:00:00.000Z";
+        const segs = flashcards.parseCommentSegments(raw);
+        assert.strictEqual(segs.length, 1);
+        assert.deepStrictEqual(segs[0], {
+            kind: "fsrs",
+            due: "2023-09-06T00:10:00.000Z",
+            interval: 0,
+            stability: 0.4,
+            difficulty: 5.5,
+            state: 1,
+            reps: 1,
+            lapses: 0,
+            learningSteps: 1,
+            lastReview: "2023-09-06T00:00:00.000Z",
+        });
+        assert.strictEqual(writer.buildCommentInner([segs[0]], cfg), raw);
+        assert.strictEqual(writer.buildCommentInner([null], cfg), "!2000-01-01,1,250");
+    });
+    check("混合分段:未复习占位 + FSRS + 旧 SM-2 共存解析", () => {
+        const segs = flashcards.parseCommentSegments(
+            "!2000-01-01,1,250!fsrs,2023-09-06T00:10:00.000Z,0,0.4,5.5,1,1,0,1,2023-09-06T00:00:00.000Z!2023-09-02,4,270",
+        );
+        assert.deepStrictEqual(segs, [
+            null,
+            {
+                kind: "fsrs",
+                due: "2023-09-06T00:10:00.000Z",
+                interval: 0,
+                stability: 0.4,
+                difficulty: 5.5,
+                state: 1,
+                reps: 1,
+                lapses: 0,
+                learningSteps: 1,
+                lastReview: "2023-09-06T00:00:00.000Z",
+            },
+            { kind: "osr", due: "2023-09-02", interval: 4, ease: 270 },
+        ]);
+    });
+    check("lastReview 缺省写作 '-' 并能解析回 null", () => {
+        const seg = fsrs.newCardFsrs("again", cfg, NOW);
+        seg.lastReview = null;
+        const raw = writer.buildCommentInner([seg], cfg);
+        assert.ok(raw.endsWith(",-"), raw);
+        const parsed = flashcards.parseCommentSegments(raw)[0];
+        assert.strictEqual(parsed.lastReview, null);
+    });
+    check("isSegDue:FSRS 按时间戳、OSR 按日期", () => {
+        const future = fsrs.newCardFsrs("easy", cfg, NOW); // due 2024-05-09T12:00
+        assert.strictEqual(scheduler.isSegDue(future, new Date("2024-05-09T11:59:00.000Z")), false);
+        assert.strictEqual(scheduler.isSegDue(future, new Date("2024-05-09T12:00:00.000Z")), true);
+        assert.strictEqual(scheduler.isSegDue(osrSeg(dates.todayStr(), 1, 250)), true);
+        assert.strictEqual(scheduler.isSegDue(osrSeg(dates.addDays(dates.todayStr(), 10), 1, 250)), false);
+    });
+}
+
+console.log("== FSRS 注释写回回环 ==");
+{
+    const NOW = new Date("2024-05-01T12:00:00.000Z");
+    check("默认 fsrs:新卡评级 -> 注释以 !fsrs 开头且回读一致", () => {
+        const seg = fsrs.newCardFsrs("easy", cfg, NOW);
+        const text = writer.setCardScheduleText("Question::Answer\n", cfgFolder, "x.md", 0, [seg]);
+        assert.ok(text.includes("<!--SR:!fsrs,"), text);
+        const p = flashcards.parseFlashcards("x.md", text, cfgFolder);
+        assert.strictEqual(p.blocks[0].segs[0].kind, "fsrs");
+        assert.deepStrictEqual(p.blocks[0].segs[0], seg);
+    });
+    check("fsrs 配置下兄弟未复习段仍写 SM-2 占位", () => {
+        const seg = fsrs.newCardFsrs("easy", cfg, NOW);
+        const text = writer.setCardScheduleText("Q:::A", cfgFolder, "x.md", 0, [seg, null]);
+        const m = text.match(/<!--SR:(.+?)-->/)[1];
+        assert.ok(m.includes("!2000-01-01,1,250"), m);
+        const p = flashcards.parseFlashcards("x.md", text, cfgFolder);
+        assert.deepStrictEqual(p.blocks[0].segs[0], seg);
+        assert.strictEqual(p.blocks[0].segs[1], null);
+    });
+    check("SM-2-OSR 配置下 fsrs 段被回写为 SM-2 注释(算法迁移)", () => {
+        const seg = fsrs.newCardFsrs("easy", cfg, NOW);
+        const back = scheduler.calcNextSeg("good", seg, cfgOsr, NOW);
+        assert.strictEqual(back.kind, "osr");
+        const cfgFolderOsr = { ...cfgFolder, algorithm: "SM-2-OSR" };
+        const text = writer.setCardScheduleText("Question::Answer\n", cfgFolderOsr, "x.md", 0, [back]);
+        assert.ok(!text.includes("!fsrs"), text);
+        assert.ok(/<!--SR:!\d{4}-\d{2}-\d{2},\d+,\d+-->/.test(text), text);
+    });
+}
 
 console.log("== 整篇笔记 #review ==");
 {

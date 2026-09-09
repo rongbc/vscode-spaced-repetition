@@ -3,7 +3,11 @@
 /** 答题评级,与 OSR 的 ReviewResponse 对应 */
 export type Grade = "again" | "hard" | "good" | "easy";
 
+/** 闪卡调度算法:fsrs = FSRS(默认);SM-2-OSR = OSR 变体的 SM-2(字面量与 obsidian-spaced-repetition 上游 SRAlgorithmType.SM_2_OSR 一致) */
+export type Algorithm = "fsrs" | "SM-2-OSR";
+
 export interface SRSConfig {
+    algorithm: Algorithm;
     flashcardTags: string[];
     noteReviewTags: string[];
     deckSource: "folder" | "tag" | "tagAndFolder";
@@ -14,9 +18,12 @@ export interface SRSConfig {
     easyBonus: number;
     lapsesIntervalChange: number;
     maximumInterval: number;
+    /** FSRS 期望保留率(0.7~0.97,默认 0.9,与 FSRS4Anki / OSR 一致) */
+    fsrsDesiredRetention: number;
 }
 
 export const DEFAULT_CONFIG: SRSConfig = {
+    algorithm: "fsrs",
     flashcardTags: ["#flashcards"],
     noteReviewTags: ["#review"],
     // 与 OSR 默认一致:仅解析带闪卡标签的笔记,牌组 = 标签路径
@@ -36,6 +43,7 @@ export const DEFAULT_CONFIG: SRSConfig = {
     easyBonus: 1.3,
     lapsesIntervalChange: 0.5,
     maximumInterval: 36525,
+    fsrsDesiredRetention: 0.9,
 };
 
 /** 一张卡(可答题单元)的正面/背面 */
@@ -44,12 +52,38 @@ export interface CardSide {
     back: string;
 }
 
-/** 一个调度分段:即某张卡写回注释里的 "日期,间隔,难度"。null 表示从未复习 */
-export interface SchedSeg {
+/**
+ * 调度分段:一张可答题卡写回注释里的调度数据(kind 判别其算法与注释格式)。
+ * 一个闪卡块的调度注释可混合多段,如 <!--SR:!fsrs,...!2000-01-01,1,250-->。
+ */
+export interface OsrSeg {
+    kind: "osr"; // SM-2(OSR 变体):注释段 !日期,间隔,难度
     due: string; // YYYY-MM-DD
     interval: number; // 天(整数,序列化时取整,与 OSR 注释格式兼容)
     ease: number;
 }
+
+/** FSRS 状态(ts-fsrs State):New=0 / Learning=1 / Review=2 / Relearning=3 */
+export type FsrsState = 0 | 1 | 2 | 3;
+
+/**
+ * FSRS 分段,字段与 obsidian-spaced-repetition 的 RepItemScheduleInfoFsrs 序列化一致:
+ * !fsrs,{due ISO},{interval},{stability},{difficulty},{state},{reps},{lapses},{learningSteps},{lastReview ISO|-}
+ */
+export interface FsrsSeg {
+    kind: "fsrs";
+    due: string; // ISO 8601(注释原样往返)
+    interval: number; // scheduled_days(天,可为小数;学习步进为 0)
+    stability: number;
+    difficulty: number;
+    state: FsrsState;
+    reps: number;
+    lapses: number;
+    learningSteps: number;
+    lastReview: string | null; // ISO 8601;null 在注释中写作 "-"
+}
+
+export type SchedSeg = OsrSeg | FsrsSeg;
 
 /** 解析出的一个闪卡块(一个问题文本,含 1~2 张可答题卡) */
 export interface FlashcardBlock {

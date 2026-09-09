@@ -2,6 +2,7 @@
 
 import * as vscode from "vscode";
 import { DueBlock, FlashcardBlock, NoteReviewItem, SchedSeg, SRSConfig } from "./core/model";
+import { isSegDue, segDueDay } from "./core/scheduler";
 import { parseFlashcards } from "./parser/flashcards";
 import { makeNoteReviewItem, writeNoteSr } from "./parser/note-review";
 import { setCardScheduleText } from "./store/note-writer";
@@ -120,7 +121,7 @@ export async function scanWorkspace(cfg: SRSConfig): Promise<ScanResult> {
         for (let k = 0; k < b.sides.length; k++) {
             const seg = b.segs[k];
             const isNew = seg === null;
-            const isDue = !isNew && seg.due <= todayLocal();
+            const isDue = !isNew && isSegDue(seg);
             const item: DueBlock = { block: b, sideIdx: k, isNew, sched: seg, ordinal: e.ordinal };
             allBlocks.push(item);
             if (isNew || isDue) dueBlocks.push(item);
@@ -133,8 +134,8 @@ export async function scanWorkspace(cfg: SRSConfig): Promise<ScanResult> {
     }
     // 到期在前(按到期日升序),随后新卡
     const byDue = (a: DueBlock, b: DueBlock) => {
-        const da = a.sched ? a.sched.due : "9999-99-99";
-        const db = b.sched ? b.sched.due : "9999-99-99";
+        const da = a.sched ? segDueDay(a.sched) : "9999-99-99";
+        const db = b.sched ? segDueDay(b.sched) : "9999-99-99";
         if (da !== db) return da < db ? -1 : 1;
         return 0;
     };
@@ -145,12 +146,6 @@ export async function scanWorkspace(cfg: SRSConfig): Promise<ScanResult> {
         .sort((a, b) => a.name.localeCompare(b.name, "zh"));
 
     return { entries, dueBlocks, allBlocks, notes, decks };
-}
-
-function todayLocal(): string {
-    const d = new Date();
-    const p = (x: number) => (x < 10 ? `0${x}` : String(x));
-    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 }
 
 /** 读取某文档当前全文(含未保存缓冲) */

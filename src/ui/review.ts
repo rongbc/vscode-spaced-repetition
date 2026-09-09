@@ -3,8 +3,7 @@
 
 import * as vscode from "vscode";
 import { Grade, SchedSeg, SRSConfig } from "../core/model";
-import { newCardSchedule, reviewCardSchedule, ScheduleState } from "../core/sm2";
-import { humanizeInterval } from "../core/dates";
+import { calcNextSeg, humanizeSegInterval, segDueDay, segEaseDisplay } from "../core/scheduler";
 import {
     renderFullMd,
     readHljsThemeCss,
@@ -199,14 +198,11 @@ export class ReviewController {
         const item = this.items[this.idx];
         if (!item) return;
 
-        const curSeg = item.segs[item.sideIdx];
-        const cur: ScheduleState | null = curSeg
-            ? { due: curSeg.due, interval: curSeg.interval, ease: curSeg.ease }
-            : null;
-        const next = cur ? reviewCardSchedule(grade, cur, this.cfg) : newCardSchedule(grade, this.cfg);
+        const curSeg = item.segs[item.sideIdx] ?? null;
+        const next = calcNextSeg(grade, curSeg, this.cfg);
 
         const segs = [...item.segs];
-        segs[item.sideIdx] = { due: next.due, interval: next.interval, ease: next.ease };
+        segs[item.sideIdx] = next;
 
         let ok = false;
         try {
@@ -224,7 +220,7 @@ export class ReviewController {
         this.counts[grade]++;
         item.segs = segs;
         item.isNew = false;
-        item.due = next.due;
+        item.due = segDueDay(next);
         this.revealed = false;
         this.idx++;
         this.sendCurrent();
@@ -250,14 +246,10 @@ export class ReviewController {
             });
             return;
         }
-        const curSeg = item.segs[item.sideIdx];
-        const cur: ScheduleState | null = curSeg
-            ? { due: curSeg.due, interval: curSeg.interval, ease: curSeg.ease }
-            : null;
-        const ivls = (["again", "hard", "good", "easy"] as Grade[]).map((g) => {
-            const s = cur ? reviewCardSchedule(g, cur, this.cfg) : newCardSchedule(g, this.cfg);
-            return humanizeInterval(Math.max(0, Math.round(s.interval)), langTag());
-        });
+        const curSeg = item.segs[item.sideIdx] ?? null;
+        const ivls = (["again", "hard", "good", "easy"] as Grade[]).map((g) =>
+            humanizeSegInterval(calcNextSeg(g, curSeg, this.cfg), langTag()),
+        );
         // 本地图片:相对当前笔记目录解析 -> webview URI;解析失败保留原样
         const dir = item.relPath.includes("/") ? item.relPath.slice(0, item.relPath.lastIndexOf("/")) : "";
         const webview = this.panel!.webview;
@@ -273,11 +265,14 @@ export class ReviewController {
                           return null;
                       }
                   };
-        const dur = humanizeInterval(Math.max(0, Math.round(cur ? cur.interval : 0)), langTag());
         const metaText = item.isNew
             ? t("meta.new")
-            : cur
-                ? t("meta.last", { interval: dur, ease: cur.ease, due: cur.due })
+            : curSeg
+                ? t("meta.last", {
+                      interval: humanizeSegInterval(curSeg, langTag()),
+                      ease: segEaseDisplay(curSeg),
+                      due: segDueDay(curSeg),
+                  })
                 : "";
         this.post({
             type: "card",
@@ -290,11 +285,11 @@ export class ReviewController {
             backHtml: renderFullMd(item.back, imgSrc),
             isNew: item.isNew,
             due: item.due,
-            before: cur
+            before: curSeg
                 ? {
-                      interval: humanizeInterval(Math.max(0, Math.round(cur.interval)), langTag()),
-                      ease: cur.ease,
-                      due: cur.due,
+                      interval: humanizeSegInterval(curSeg, langTag()),
+                      ease: segEaseDisplay(curSeg),
+                      due: segDueDay(curSeg),
                   }
                 : null,
             ivls,
